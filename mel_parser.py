@@ -4,7 +4,6 @@ from lark.visitors import InlineTransformer
 
 from mel_ast import *
 
-
 parser = Lark('''
     %import common.NUMBER
     %import common.ESCAPED_STRING
@@ -28,8 +27,6 @@ parser = Lark('''
     DIV:     "/"
     AND:     "&&"
     OR:      "||"
-    BIT_AND: "&"
-    BIT_OR:  "|"
     GE:      ">="
     LE:      "<="
     NEQUALS: "!="
@@ -63,29 +60,40 @@ parser = Lark('''
         | logical_or OR logical_and  -> bin_op
 
     ?expr: logical_or
+    
+    ?when_inner: expr "->" "{" stmt_list "}"
 
-    ?var_decl_inner: ident
-        | ident "=" expr  -> assign
+    ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" "{" stmt_list "}" "}" 
+    
+    var_type: ident ":" ident
+    
+    ?var_decl_inner: var_type
+        | ident
+    
+    assign: ident "=" expr
 
-    vars_decl: ident var_decl_inner ( "," var_decl_inner )*
+    var_decl: "val" var_type "=" expr -> var_init
+        | "var" var_type "=" expr      -> var_init
+        | "var" var_type               
 
-    ?simple_stmt: ident "=" expr  -> assign
+    ?simple_stmt: assign
         | call
 
-    ?for_stmt_list: vars_decl
+    ?for_stmt_list: var_decl
         | ( simple_stmt ( "," simple_stmt )* )?  -> stmt_list
     ?for_cond: expr
         |   -> stmt_list
     ?for_body: stmt
         | ";"  -> stmt_list
 
-    ?stmt: vars_decl ";"
-        | simple_stmt ";"
+    ?stmt: var_decl
+        | simple_stmt
         | "if" "(" expr ")" stmt ("else" stmt)?  -> if
         | "for" "(" for_stmt_list ";" for_cond ";" for_stmt_list ")" for_body  -> for
         | "{" stmt_list "}"
+        | when
 
-    stmt_list: ( stmt ";"* )*
+    stmt_list: ( stmt )*
 
     ?prog: stmt_list
 
@@ -98,11 +106,12 @@ class MelASTBuilder(InlineTransformer):
         if isinstance(item, str) and item.upper() == item:
             return lambda x: x
 
-        if item in ('bin_op', ):
+        if item in ('bin_op',):
             def get_bin_op_node(*args):
                 op = BinOp(args[1].value)
                 return BinOpNode(op, args[0], args[2],
                                  **{'token': args[1], 'line': args[1].line, 'column': args[1].column})
+
             return get_bin_op_node
         else:
             def get_node(*args):
@@ -114,6 +123,7 @@ class MelASTBuilder(InlineTransformer):
                     args = [args[0].value]
                 cls = eval(''.join(x.capitalize() for x in item.split('_')) + 'Node')
                 return cls(*args, **props)
+
             return get_node
 
 

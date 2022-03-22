@@ -50,7 +50,7 @@ class LiteralNode(ExprNode):
         self.value = eval(literal)
 
     def __str__(self) -> str:
-        return '{0} ({1})'.format(self.literal, type(self.value).__name__)
+        return '{0}'.format(self.literal)
 
 
 class IdentNode(ExprNode):
@@ -74,8 +74,6 @@ class BinOp(Enum):
     EQUALS = '=='
     GT = '>'
     LT = '<'
-    BIT_AND = '&'
-    BIT_OR = '|'
     LOGICAL_AND = '&&'
     LOGICAL_OR = '||'
 
@@ -100,7 +98,7 @@ class StmtNode(ExprNode):
     pass
 
 
-class VarsDeclNode(StmtNode):
+class VarDeclNode(StmtNode):
     def __init__(self, vars_type: StmtNode, *vars_list: Tuple[AstNode, ...],
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
@@ -193,6 +191,69 @@ class StmtListNode(StmtNode):
 
     def __str__(self) -> str:
         return '...'
+
+
+class WhenInnerNode(StmtNode):
+    def __init__(self, expr: ExprNode, stmt: StmtNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.expr = expr
+        self.stmt = stmt
+
+    @property
+    def childs(self) -> Tuple[ExprNode, StmtNode]:
+        return self.expr, self.stmt
+
+    def __str__(self) -> str:
+        return '->'
+
+
+class WhenNode(StmtNode):
+    def __init__(self, ident: IdentNode, finalBlock: StmtListNode, *optionallocks: WhenInnerNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.ident = ident
+        self.optionallocks = optionallocks
+        self.finalBlock = finalBlock
+
+    @property
+    def childs(self) -> Tuple[StmtNode, ...]:
+        return (self.ident, self.finalBlock) + self.optionallocks
+
+    def __str__(self) -> str:
+        return 'when'
+
+
+class VarTypeNode(StmtNode):
+    def __init__(self, var: IdentNode, type: IdentNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.var = var
+        self.type = type
+
+    @property
+    def childs(self) -> Tuple[IdentNode, IdentNode]:
+        return self.var, self.type
+
+    def __str__(self) -> str:
+        return ':'
+
+
+class VarInitNode(StmtNode):
+    def __init__(self, varType: VarTypeNode, val: ExprNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.varType = varType
+        self.val = val
+
+    @property
+    def childs(self) -> Tuple[VarTypeNode, ExprNode]:
+        return self.varType, self.val
+
+    def __str__(self) -> str:
+        return 'var'
+
+
 
 
 _empty = StmtListNode()
