@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Tuple, Optional, Union
+from typing import Callable, Tuple, Optional, Union, List
 from enum import Enum
 
 
@@ -145,7 +145,7 @@ class AssignNode(StmtNode):
         return '='
 
 
-class IfNode(StmtNode):
+class SingleIfNode(StmtNode):
     def __init__(self, cond: ExprNode, then_stmt: StmtNode, else_stmt: Optional[StmtNode] = None,
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
@@ -155,7 +155,23 @@ class IfNode(StmtNode):
 
     @property
     def childs(self) -> Tuple[ExprNode, StmtNode, Optional[StmtNode]]:
-        return (self.cond, self.then_stmt) + ((self.else_stmt,) if self.else_stmt else tuple())
+        return (self.cond, self.then_stmt) + (self.else_stmt,) if self.else_stmt else ()
+
+    def __str__(self) -> str:
+        return 'if'
+
+
+class MultiIfNode(StmtNode):
+    def __init__(self, cond: ExprNode, then_stmt: StmtNode, else_stmt: StmtNode = None,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.cond = cond
+        self.then_stmt = then_stmt
+        self.else_stmt = else_stmt
+
+    @property
+    def childs(self) -> Tuple[ExprNode, StmtNode, Optional[StmtNode]]:
+        return self.cond, self.then_stmt, self.else_stmt
 
     def __str__(self) -> str:
         return 'if'
@@ -225,18 +241,18 @@ class WhenNode(StmtNode):
 
 
 class VarTypeNode(StmtNode):
-    def __init__(self, var: IdentNode, type: IdentNode,
+    def __init__(self, var: IdentNode, _type: IdentNode,
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
         self.var = var
-        self.type = type
+        self.type = _type
 
     @property
-    def childs(self) -> Tuple[IdentNode, IdentNode]:
-        return self.var, self.type
+    def childs(self) -> Tuple:
+        return ()
 
     def __str__(self) -> str:
-        return ':'
+        return self.var.name + ':' + self.type.name
 
 
 class VarInitNode(StmtNode):
@@ -253,6 +269,107 @@ class VarInitNode(StmtNode):
     def __str__(self) -> str:
         return 'var'
 
+
+class WhileNode(StmtNode):
+    def __init__(self, cond: ExprNode, body: StmtListNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.cond = cond
+        self.body = body
+
+    @property
+    def childs(self) -> Tuple[ExprNode, StmtListNode]:
+        return self.cond, self.body
+
+    def __str__(self) -> str:
+        return 'while'
+
+
+class CommonFunDeclrNode(StmtNode):
+    def __init__(self, name: IdentNode, retType: IdentNode, body: StmtListNode, *params: Tuple[VarTypeNode, ...],
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.params = params
+        self.name = name
+        self.retType = retType
+        self.body = body
+
+    @property
+    def childs(self) -> Tuple[StmtListNode]:
+        return self.body,
+
+    def __str__(self) -> str:
+        return 'fun ' + self.name.name + '(' + self.strParams() + ')' + self.strRetVal()
+
+    def strParams(self) -> str:
+        s: str = ''
+        for i in self.params:
+            s += i.__str__()
+            s += ', '
+        return s[:-2] if s != '' else ''
+
+    def strRetVal(self) -> str:
+        return ': ' + self.retType.name
+
+
+class SimpleFunDeclrNode(StmtNode):
+    def __init__(self, name: IdentNode, retType: IdentNode, expr: ExprNode, *params: Tuple[VarTypeNode, ...],
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.params = params
+        self.name = name
+        self.retType = retType
+        self.expr = expr
+
+    @property
+    def childs(self) -> Tuple[ExprNode]:
+        return self.expr,
+
+    def __str__(self) -> str:
+        return 'fun ' + self.name.name + '(' + self.strParams() + ')' + self.strRetVal()
+
+    def strParams(self) -> str:
+        s: str = ''
+        for i in self.params:
+            s += i.__str__()
+            s += ', '
+        return s[:-2] if s != '' else ''
+
+    def strRetVal(self) -> str:
+        return ': ' + self.retType.name
+
+
+class ForArrNode(StmtNode):
+    def __init__(self, param: IdentNode, arr: IdentNode, body: StmtListNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.param = param
+        self.body = body
+        self.arr = arr
+
+    @property
+    def childs(self) -> Tuple[IdentNode, IdentNode, StmtListNode]:
+        return self.param, self.arr, self.body
+
+    def __str__(self) -> str:
+        return 'for ' + self.param.name + ' in ' + self.arr.name
+
+
+class ForRangeNode(StmtNode):
+    def __init__(self, param: IdentNode, start: ExprNode, end: ExprNode, body: StmtListNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.param = param
+        self.body = body
+        self.start = start
+        self.end = end
+
+    @property
+    def childs(self) -> Tuple[IdentNode, StmtListNode]:
+        return self.param, self.body
+
+    def __str__(self) -> str:
+        return 'for ' + self.param.name + ' in ' + self.start.__str__() + '..' + self.end.__str__()
 
 
 

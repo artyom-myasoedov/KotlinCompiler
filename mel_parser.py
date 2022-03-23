@@ -10,6 +10,7 @@ parser = Lark('''
     %import common.CNAME
     %import common.NEWLINE
     %import common.WS
+    %import common.INT
 
     %ignore WS
 
@@ -19,7 +20,8 @@ parser = Lark('''
 
     num: NUMBER  -> literal
     str: ESCAPED_STRING  -> literal
-    ident: CNAME
+    ident: CNAME 
+    int: INT -> literal
 
     ADD:     "+"
     SUB:     "-"
@@ -61,9 +63,11 @@ parser = Lark('''
 
     ?expr: logical_or
     
-    ?when_inner: expr "->" "{" stmt_list "}"
+    ?stmt_group: "{" stmt_list "}"
+    
+    ?when_inner: expr "->" stmt_group
 
-    ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" "{" stmt_list "}" "}" 
+    ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" stmt_group "}" 
     
     var_type: ident ":" ident
     
@@ -79,19 +83,24 @@ parser = Lark('''
     ?simple_stmt: assign
         | call
 
-    ?for_stmt_list: var_decl
-        | ( simple_stmt ( "," simple_stmt )* )?  -> stmt_list
-    ?for_cond: expr
-        |   -> stmt_list
-    ?for_body: stmt
-        | ";"  -> stmt_list
+    ?for: "for" "(" ident "in" ident ")" stmt_group -> for_arr
+        | "for" "(" ident "in" int ".." int ")" stmt_group -> for_range
+        
+    
+    if: "if" "(" expr ")" stmt_group  ("else" stmt_group)? -> single_if
+        | "if" "(" expr ")" stmt_group  "else" if -> multi_if
+        
+    fun_declr: "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" ident stmt_group -> common_fun_declr
+        | "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" ident "=" expr -> simple_fun_declr
 
     ?stmt: var_decl
         | simple_stmt
-        | "if" "(" expr ")" stmt ("else" stmt)?  -> if
-        | "for" "(" for_stmt_list ";" for_cond ";" for_stmt_list ")" for_body  -> for
-        | "{" stmt_list "}"
+        | if
+        | for
+        | stmt_group
         | when
+        | "while" "(" expr ")" stmt_group -> while
+        | fun_declr
 
     stmt_list: ( stmt )*
 
@@ -113,6 +122,21 @@ class MelASTBuilder(InlineTransformer):
                                  **{'token': args[1], 'line': args[1].line, 'column': args[1].column})
 
             return get_bin_op_node
+
+        elif item in ('common_fun_declr',):
+            def get_common_fun_declr_node(*args):
+                args = [args[0], args[-2], args[-1], *args[1:-2]]
+                return CommonFunDeclrNode(*args,
+                                          **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+            return get_common_fun_declr_node
+
+        elif item in ('simple_fun_declr',):
+            def get_common_fun_declr_node(*args):
+                args = [args[0], args[-2], args[-1], *args[1:-2]]
+                return SimpleFunDeclrNode(*args,
+                                          **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+            return get_common_fun_declr_node
+
         else:
             def get_node(*args):
                 props = {}

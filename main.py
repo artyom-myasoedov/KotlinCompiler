@@ -20,6 +20,13 @@ def main():
         for(;;);
     '''
     prog = '''
+    
+    fun myFunc(i: Int, b: Str): Double {
+    print()
+    }
+    
+    fun pow(i: Int, b: Str): Int = b * i
+    
     val i: Int = 10
     var b: Double = 11.2
     var c: String
@@ -27,6 +34,29 @@ def main():
     when(i) {
     1 -> { i = 4}
     else -> {c = i - 10}
+    }
+    while (i>0) {
+    when(i) {
+    1 -> { i = 4}
+    else -> {c = i - 10}
+    }
+    }
+    if (a == b) {
+    a = c
+    e = 1-4
+    } else if (empty()) {
+    i = call()
+    } else {
+    print()}
+    
+    for (i in 5..7) {
+    a = b
+    plus(a)
+    }
+    
+    for (i in arr) {
+    a = b
+    plus(a)
     }
     '''
     prog = mel_parser.parse(prog)
