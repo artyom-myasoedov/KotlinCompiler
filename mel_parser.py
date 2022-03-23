@@ -22,6 +22,8 @@ parser = Lark('''
     str: ESCAPED_STRING  -> literal
     ident: CNAME 
     int: INT -> literal
+    ?bool: "true" -> literal
+        | "false" -> literal
 
     ADD:     "+"
     SUB:     "-"

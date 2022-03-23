@@ -56,6 +56,7 @@ def main():
     
     for (i in arr) {
     a = b
+    c = true
     plus(a)
     }
     '''
