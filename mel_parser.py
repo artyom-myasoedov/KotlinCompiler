@@ -4,13 +4,13 @@ from lark.visitors import InlineTransformer
 
 from mel_ast import *
 
-
 parser = Lark('''
     %import common.NUMBER
     %import common.ESCAPED_STRING
     %import common.CNAME
     %import common.NEWLINE
     %import common.WS
+    %import common.INT
 
     %ignore WS
 
@@ -20,7 +20,10 @@ parser = Lark('''
 
     num: NUMBER  -> literal
     str: ESCAPED_STRING  -> literal
-    ident: CNAME
+    ident: CNAME 
+    int: INT -> literal
+    ?bool: "true" -> literal
+        | "false" -> literal
 
     ADD:     "+"
     SUB:     "-"
@@ -28,8 +31,6 @@ parser = Lark('''
     DIV:     "/"
     AND:     "&&"
     OR:      "||"
-    BIT_AND: "&"
-    BIT_OR:  "|"
     GE:      ">="
     LE:      "<="
     NEQUALS: "!="
@@ -63,29 +64,47 @@ parser = Lark('''
         | logical_or OR logical_and  -> bin_op
 
     ?expr: logical_or
+    
+    ?stmt_group: "{" stmt_list "}"
+    
+    ?when_inner: expr "->" stmt_group
 
-    ?var_decl_inner: ident
-        | ident "=" expr  -> assign
+    ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" stmt_group "}" 
+    
+    var_type: ident ":" ident
+    
+    ?var_decl_inner: var_type
+        | ident
+    
+    assign: ident "=" expr
 
-    vars_decl: ident var_decl_inner ( "," var_decl_inner )*
+    var_decl: "val" var_type "=" expr -> var_init
+        | "var" var_type "=" expr      -> var_init
+        | "var" var_type               
 
-    ?simple_stmt: ident "=" expr  -> assign
+    ?simple_stmt: assign
         | call
 
-    ?for_stmt_list: vars_decl
-        | ( simple_stmt ( "," simple_stmt )* )?  -> stmt_list
-    ?for_cond: expr
-        |   -> stmt_list
-    ?for_body: stmt
-        | ";"  -> stmt_list
+    ?for: "for" "(" ident "in" ident ")" stmt_group -> for_arr
+        | "for" "(" ident "in" int ".." int ")" stmt_group -> for_range
+        
+    
+    if: "if" "(" expr ")" stmt_group  ("else" stmt_group)? -> single_if
+        | "if" "(" expr ")" stmt_group  "else" if -> multi_if
+        
+    fun_declr: "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" ident stmt_group -> common_fun_declr
+        | "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" ident "=" expr -> simple_fun_declr
 
-    ?stmt: vars_decl ";"
-        | simple_stmt ";"
-        | "if" "(" expr ")" stmt ("else" stmt)?  -> if
-        | "for" "(" for_stmt_list ";" for_cond ";" for_stmt_list ")" for_body  -> for
-        | "{" stmt_list "}"
+    ?stmt: var_decl
+        | simple_stmt
+        | if
+        | for
+        | stmt_group
+        | when
+        | "while" "(" expr ")" stmt_group -> while
+        | fun_declr
 
-    stmt_list: ( stmt ";"* )*
+    stmt_list: ( stmt )*
 
     ?prog: stmt_list
 
@@ -98,12 +117,28 @@ class MelASTBuilder(InlineTransformer):
         if isinstance(item, str) and item.upper() == item:
             return lambda x: x
 
-        if item in ('bin_op', ):
+        if item in ('bin_op',):
             def get_bin_op_node(*args):
                 op = BinOp(args[1].value)
                 return BinOpNode(op, args[0], args[2],
                                  **{'token': args[1], 'line': args[1].line, 'column': args[1].column})
+
             return get_bin_op_node
+
+        elif item in ('common_fun_declr',):
+            def get_common_fun_declr_node(*args):
+                args = [args[0], args[-2], args[-1], *args[1:-2]]
+                return CommonFunDeclrNode(*args,
+                                          **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+            return get_common_fun_declr_node
+
+        elif item in ('simple_fun_declr',):
+            def get_common_fun_declr_node(*args):
+                args = [args[0], args[-2], args[-1], *args[1:-2]]
+                return SimpleFunDeclrNode(*args,
+                                          **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+            return get_common_fun_declr_node
+
         else:
             def get_node(*args):
                 props = {}
@@ -114,6 +149,7 @@ class MelASTBuilder(InlineTransformer):
                     args = [args[0].value]
                 cls = eval(''.join(x.capitalize() for x in item.split('_')) + 'Node')
                 return cls(*args, **props)
+
             return get_node
 
 
