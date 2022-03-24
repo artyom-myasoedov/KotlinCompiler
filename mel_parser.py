@@ -44,6 +44,7 @@ parser = Lark('''
         | ident
         | call
         | "(" expr ")"
+        | array_init
 
     ?mult: group
         | mult ( MUL | DIV ) group  -> bin_op
@@ -71,10 +72,17 @@ parser = Lark('''
 
     ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" stmt_group "}" 
     
-    var_type: ident ":" ident
+    ?type: "Double"
+        | "String"
+        | "Int"
+        | "Bool"
+        | array
+        
+    ?array: "Array" "<" type ">"
     
-    ?var_decl_inner: var_type
-        | ident
+    var_type: ident ":" type
+    
+    ?array_init: "arrayOf(" ( expr ( "," expr )* )? ")"
     
     assign: ident "=" expr
 
