@@ -73,8 +73,11 @@ parser = Lark('''
     
     var_type: ident ":" ident
     
-    ?var_decl_inner: var_type
-        | ident
+    ?type: "Double"
+        | String
+        | Int
+        | Bool
+        
     
     assign: ident "=" expr
 
