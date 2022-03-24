@@ -22,8 +22,12 @@ parser = Lark('''
     str: ESCAPED_STRING  -> literal
     ident: CNAME 
     int: INT -> literal
-    ?bool: "true" -> literal
-        | "false" -> literal
+    bool: TRUE
+        | FALSE
+    common_type: DOUBLE
+        | INTEGER
+        | STRING
+        | BOOL
 
     ADD:     "+"
     SUB:     "-"
@@ -37,13 +41,25 @@ parser = Lark('''
     EQUALS:  "=="
     GT:      ">"
     LT:      "<"
+    
+    TRUE:    "true"
+    FALSE:   "false"
+    
+    DOUBLE:  "Double"
+    INTEGER: "Int"
+    STRING:  "String"
+    BOOL:    "Bool"
+    ARRAY:   "Array"
 
     call: ident "(" ( expr ( "," expr )* )? ")"
 
     ?group: num | str
+        | bool
         | ident
+        | array_init
         | call
         | "(" expr ")"
+        | ident "[" int "]"
 
     ?mult: group
         | mult ( MUL | DIV ) group  -> bin_op
@@ -71,10 +87,15 @@ parser = Lark('''
 
     ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" stmt_group "}" 
     
-    var_type: ident ":" ident
+    ?type: common_type
+        | array_type
     
-    ?var_decl_inner: var_type
-        | ident
+    ?array_type: ARRAY "<" type ">"
+    
+    array_init: "arrayOf(" ( expr ( "," expr )* )? ")" -> arr_of
+        | "Array(" int ")"                             -> empty_arr
+    
+    var_type: ident ":" type
     
     assign: ident "=" expr
 
@@ -92,8 +113,8 @@ parser = Lark('''
     if: "if" "(" expr ")" stmt_group  ("else" stmt_group)? -> single_if
         | "if" "(" expr ")" stmt_group  "else" if -> multi_if
         
-    fun_declr: "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" ident stmt_group -> common_fun_declr
-        | "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" ident "=" expr -> simple_fun_declr
+    fun_declr: "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" type stmt_group -> common_fun_declr
+        | "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" type "=" expr -> simple_fun_declr
 
     ?stmt: var_decl
         | simple_stmt
@@ -113,6 +134,10 @@ parser = Lark('''
 
 
 class MelASTBuilder(InlineTransformer):
+    def __init__(self):
+        super().__init__()
+        self.arrCount = 0
+
     def __getattr__(self, item):
         if isinstance(item, str) and item.upper() == item:
             return lambda x: x
@@ -130,14 +155,35 @@ class MelASTBuilder(InlineTransformer):
                 args = [args[0], args[-2], args[-1], *args[1:-2]]
                 return CommonFunDeclrNode(*args,
                                           **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
             return get_common_fun_declr_node
 
         elif item in ('simple_fun_declr',):
-            def get_common_fun_declr_node(*args):
+            def get_simple_fun_declr_node(*args):
                 args = [args[0], args[-2], args[-1], *args[1:-2]]
                 return SimpleFunDeclrNode(*args,
                                           **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
-            return get_common_fun_declr_node
+
+            return get_simple_fun_declr_node
+
+        elif item in ('bool',):
+            def get_bool(*args):
+                return LiteralNode(str(Bools(args[0]).value),
+                                   **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
+            return get_bool
+
+        elif item in ('common_type',):
+            def get_type(*args):
+                return TypeNode(name=str(Types(args[0].value).value), innerType=None, **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
+            return get_type
+
+        elif item in ('array_type',):
+            def get_type(*args):
+                return TypeNode(name='array', innerType=args[1], **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
+            return get_type
 
         else:
             def get_node(*args):

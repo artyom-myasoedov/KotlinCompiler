@@ -3,29 +3,20 @@ import mel_parser
 
 
 def main():
-    prog = '''
-        int g, g2 = g, g = 90;
-
-        a = input(); b = input();  /* comment 1
-        c = input();
-        */
-        for (int i = 0, j = 8; ((i <= 5)) && g; i = i + 1, print(5))
-            for(; a < b;)
-                if (a > 7 + b) {
-                    c = a + b * (2 - 1) + 0;  // comment 2
-                    b = "98\tура";
-                }
-                else if (f)
-                    output(c + 1, 89.89);
-        for(;;);
+    prog2 = '''
+    
+    a = true
+    var c: Array<Array<Double>> = Array(30)
+    var c: Array<Array<Double>> = arrayOf(30, call(1), 4.3)
+    
     '''
     prog = '''
     
-    fun myFunc(i: Int, b: Str): Double {
+    fun myFunc(i: Int, b: String): Double {
     print()
     }
     
-    fun pow(i: Int, b: Str): Int = b * i
+    fun pow(i: Int, b: String): Int = b * i
     
     val i: Int = 10
     var b: Double = 11.2
@@ -60,7 +51,7 @@ def main():
     plus(a)
     }
     '''
-    prog = mel_parser.parse(prog)
+    prog = mel_parser.parse(prog2)
     print(*prog.tree, sep=os.linesep)
 
 
