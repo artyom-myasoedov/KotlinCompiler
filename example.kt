@@ -35,8 +35,8 @@ when(b) {
 }
 
 
-val numbers: Array<Int> = arrayOf<Int>(1, 2, 3, 4, 5)
-val numbers: Array<Int> = Array<Int>(3)
+val numbers: Array<Int> = arrayOf(1, 2, 3, 4, 5)
+val numbers: Array<Int> = Array(3)
 for(i in 1..5) {
     print(numbers[i])
 }
