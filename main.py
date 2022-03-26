@@ -49,9 +49,12 @@ def main():
     a = b
     c = true
     plus(a)
+    var c: Array<Array<Double>> = Array(30)
+    var c: Array<Array<Double>> = arrayOf(30, call(1), 4.3)
+    c[0] =  c[3]
     }
     '''
-    prog = mel_parser.parse(prog2)
+    prog = mel_parser.parse(prog)
     print(*prog.tree, sep=os.linesep)
 
 

@@ -443,4 +443,19 @@ class ArrOfNode(StmtNode):
         return 'arrayOf'
 
 
+class ArrCallNode(StmtNode):
+    def __init__(self, arr: IdentNode, int_: LiteralNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.arr = arr
+        self.int_ = int_
+
+    @property
+    def childs(self) -> Tuple:
+        return ()
+
+    def __str__(self) -> str:
+        return self.arr.name + '[' + str(self.int_) + ']'
+
+
 _empty = StmtListNode()

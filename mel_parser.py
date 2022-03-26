@@ -59,7 +59,7 @@ parser = Lark('''
         | array_init
         | call
         | "(" expr ")"
-        | ident "[" int "]"
+        | arr_call
 
     ?mult: group
         | mult ( MUL | DIV ) group  -> bin_op
@@ -92,12 +92,15 @@ parser = Lark('''
     
     ?array_type: ARRAY "<" type ">"
     
+    arr_call: ident "[" int "]"
+    
     array_init: "arrayOf(" ( expr ( "," expr )* )? ")" -> arr_of
         | "Array(" int ")"                             -> empty_arr
     
     var_type: ident ":" type
     
     assign: ident "=" expr
+        | arr_call "=" expr
 
     var_decl: "val" var_type "=" expr -> var_init
         | "var" var_type "=" expr      -> var_init
