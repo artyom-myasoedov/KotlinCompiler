@@ -3,13 +3,6 @@ import mel_parser
 
 
 def main():
-    prog2 = '''
-    
-    a = true
-    var c: Array<Array<Double>> = Array(30)
-    var c: Array<Array<Double>> = arrayOf(30, call(1), 4.3)
-    
-    '''
     prog = '''
     
     fun myFunc(i: Int, b: String): Double {
@@ -24,6 +17,7 @@ def main():
     c = "str"
     when(i) {
     1 -> { i = 4}
+    2 -> { i = 4}
     else -> {c = i - 10}
     }
     while (i>0) {
@@ -51,7 +45,7 @@ def main():
     plus(a)
     var c: Array<Array<Double>> = Array(30)
     var c: Array<Array<Double>> = arrayOf(30, call(1), 4.3)
-    c[0] =  c[3]
+    c[a + 3] =  c[3]
     }
     '''
     prog = mel_parser.parse(prog)

@@ -82,13 +82,6 @@ class Bools(Enum):
     FALSE = 'false'
 
 
-class Types(Enum):
-    DOUBLE = 'Double'
-    INTEGER = 'Int'
-    STRING = 'String'
-    BOOL = 'Bool'
-
-
 class BinOpNode(ExprNode):
     def __init__(self, op: BinOp, arg1: ExprNode, arg2: ExprNode,
                  row: Optional[int] = None, line: Optional[int] = None, **props):
@@ -110,7 +103,7 @@ class StmtNode(ExprNode):
 
 
 class TypeNode(StmtNode):
-    def __init__(self, name: str, innerType: Optional[StmtNode],
+    def __init__(self, name: str, innerType: Optional[AstNode],
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
         self.name = name
@@ -123,22 +116,22 @@ class TypeNode(StmtNode):
     def __str__(self) -> str:
         return self.getStrView()
 
-    def getInnerTypes(self, level: int) -> Tuple[int, str]:
-        if self.innerType is not None:
+    def getInnerTypes(self, level: int) -> Tuple[int, IdentNode]:
+        if not isinstance(self.innerType, IdentNode):
             node: TypeNode = cast(TypeNode, self.innerType)
             return node.getInnerTypes(level + 1)
-        return level, self.name
+        return level, self.innerType
 
     def getStrView(self) -> str:
         deep, typeName = self.getInnerTypes(0)
         begin = ''
         end = ''
-        if deep == 1:
-            return self.name
+        if deep == 0:
+            return self.name.__str__()
         for i in range(deep):
             begin += 'Array<'
             end += '>'
-        return begin + typeName + end
+        return begin + typeName.__str__() + end
 
 
 class VarDeclNode(StmtNode):
@@ -268,16 +261,16 @@ class WhenInnerNode(StmtNode):
 
 
 class WhenNode(StmtNode):
-    def __init__(self, ident: IdentNode, finalBlock: StmtListNode, *optionallocks: WhenInnerNode,
+    def __init__(self, ident: IdentNode, optionalblocks: List[WhenInnerNode], finalBlock: StmtListNode,
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
         self.ident = ident
-        self.optionallocks = optionallocks
+        self.optionalblocks = optionalblocks
         self.finalBlock = finalBlock
 
     @property
     def childs(self) -> Tuple[StmtNode, ...]:
-        return (self.ident, self.finalBlock) + self.optionallocks
+        return self.ident, *self.optionalblocks, self.finalBlock
 
     def __str__(self) -> str:
         return 'when'
@@ -329,7 +322,7 @@ class WhileNode(StmtNode):
 
 
 class CommonFunDeclrNode(StmtNode):
-    def __init__(self, name: IdentNode, retType: TypeNode, body: StmtListNode, *params: Tuple[VarTypeNode, ...],
+    def __init__(self, name: IdentNode, retType: TypeNode, body: StmtListNode, params: Tuple[VarTypeNode, ...],
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
         self.params = params
@@ -340,33 +333,6 @@ class CommonFunDeclrNode(StmtNode):
     @property
     def childs(self) -> Tuple[StmtListNode]:
         return self.body,
-
-    def __str__(self) -> str:
-        return 'fun ' + self.name.name + '(' + self.strParams() + ')' + self.strRetVal()
-
-    def strParams(self) -> str:
-        s: str = ''
-        for i in self.params:
-            s += i.__str__()
-            s += ', '
-        return s[:-2] if s != '' else ''
-
-    def strRetVal(self) -> str:
-        return ': ' + str(self.retType)
-
-
-class SimpleFunDeclrNode(StmtNode):
-    def __init__(self, name: IdentNode, retType: TypeNode, expr: ExprNode, *params: Tuple[VarTypeNode, ...],
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
-        self.params = params
-        self.name = name
-        self.retType = retType
-        self.expr = expr
-
-    @property
-    def childs(self) -> Tuple[ExprNode]:
-        return self.expr,
 
     def __str__(self) -> str:
         return 'fun ' + self.name.name + '(' + self.strParams() + ')' + self.strRetVal()
@@ -444,18 +410,18 @@ class ArrOfNode(StmtNode):
 
 
 class ArrCallNode(StmtNode):
-    def __init__(self, arr: IdentNode, int_: LiteralNode,
+    def __init__(self, arr: IdentNode, index: ExprNode,
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
         self.arr = arr
-        self.int_ = int_
+        self.index = index
 
     @property
-    def childs(self) -> Tuple:
-        return ()
+    def childs(self) -> Tuple[ExprNode]:
+        return self.index,
 
     def __str__(self) -> str:
-        return self.arr.name + '[' + str(self.int_) + ']'
+        return self.arr.__str__() + '[]'
 
 
 _empty = StmtListNode()

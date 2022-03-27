@@ -24,11 +24,9 @@ parser = Lark('''
     int: INT -> literal
     bool: TRUE
         | FALSE
-    common_type: DOUBLE
-        | INTEGER
-        | STRING
-        | BOOL
 
+    keywords: "while"
+    
     ADD:     "+"
     SUB:     "-"
     MUL:     "*"
@@ -44,12 +42,7 @@ parser = Lark('''
     
     TRUE:    "true"
     FALSE:   "false"
-    
-    DOUBLE:  "Double"
-    INTEGER: "Int"
-    STRING:  "String"
-    BOOL:    "Bool"
-    ARRAY:   "Array"
+    ARRAY: "Array"
 
     call: ident "(" ( expr ( "," expr )* )? ")"
 
@@ -87,12 +80,12 @@ parser = Lark('''
 
     ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" stmt_group "}" 
     
-    ?type: common_type
+    ?type: ident
         | array_type
     
     ?array_type: ARRAY "<" type ">"
     
-    arr_call: ident "[" int "]"
+    arr_call: ident "[" expr "]"
     
     array_init: "arrayOf(" ( expr ( "," expr )* )? ")" -> arr_of
         | "Array(" int ")"                             -> empty_arr
@@ -120,12 +113,12 @@ parser = Lark('''
         | "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" type "=" expr -> simple_fun_declr
 
     ?stmt: var_decl
+        | "while" "(" expr ")" stmt_group -> while
         | simple_stmt
         | if
         | for
         | stmt_group
         | when
-        | "while" "(" expr ")" stmt_group -> while
         | fun_declr
 
     stmt_list: ( stmt )*
@@ -153,9 +146,16 @@ class MelASTBuilder(InlineTransformer):
 
             return get_bin_op_node
 
+        elif item in ('when',):
+            def get_when_node(*args):
+                return WhenNode(args[0], list(args[1:-1]), args[-1],
+                                 **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
+            return get_when_node
+
         elif item in ('common_fun_declr',):
             def get_common_fun_declr_node(*args):
-                args = [args[0], args[-2], args[-1], *args[1:-2]]
+                args = [args[0], args[-2], args[-1], tuple(args[1:-2])]
                 return CommonFunDeclrNode(*args,
                                           **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
 
@@ -163,8 +163,8 @@ class MelASTBuilder(InlineTransformer):
 
         elif item in ('simple_fun_declr',):
             def get_simple_fun_declr_node(*args):
-                args = [args[0], args[-2], args[-1], *args[1:-2]]
-                return SimpleFunDeclrNode(*args,
+                args = [args[0], args[-2], StmtListNode(args[-1]), tuple(args[1:-2])]
+                return CommonFunDeclrNode(*args,
                                           **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
 
             return get_simple_fun_declr_node
@@ -176,15 +176,9 @@ class MelASTBuilder(InlineTransformer):
 
             return get_bool
 
-        elif item in ('common_type',):
-            def get_type(*args):
-                return TypeNode(name=str(Types(args[0].value).value), innerType=None, **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
-
-            return get_type
-
         elif item in ('array_type',):
             def get_type(*args):
-                return TypeNode(name='array', innerType=args[1], **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+                return TypeNode(name=args[0], innerType=args[1], **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
 
             return get_type
 
