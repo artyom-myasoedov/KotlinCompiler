@@ -22,9 +22,11 @@ parser = Lark('''
     str: ESCAPED_STRING  -> literal
     ident: CNAME 
     int: INT -> literal
-    ?bool: "true" -> literal
-        | "false" -> literal
+    bool: TRUE
+        | FALSE
 
+    keywords: "while"
+    
     ADD:     "+"
     SUB:     "-"
     MUL:     "*"
@@ -37,14 +39,20 @@ parser = Lark('''
     EQUALS:  "=="
     GT:      ">"
     LT:      "<"
+    
+    TRUE:    "true"
+    FALSE:   "false"
+    ARRAY: "Array"
 
     call: ident "(" ( expr ( "," expr )* )? ")"
 
     ?group: num | str
+        | bool
         | ident
+        | array_init
         | call
         | "(" expr ")"
-        | array_init
+        | arr_call
 
     ?mult: group
         | mult ( MUL | DIV ) group  -> bin_op
@@ -72,19 +80,20 @@ parser = Lark('''
 
     ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" stmt_group "}" 
     
-    ?type: "Double"
-        | "String"
-        | "Int"
-        | "Bool"
-        | array
-        
-    ?array: "Array" "<" type ">"
+    ?type: ident
+        | array_type
+    
+    ?array_type: ARRAY "<" type ">"
+    
+    arr_call: ident "[" expr "]"
+    
+    array_init: "arrayOf(" ( expr ( "," expr )* )? ")" -> arr_of
+        | "Array(" int ")"                             -> empty_arr
     
     var_type: ident ":" type
     
-    ?array_init: "arrayOf(" ( expr ( "," expr )* )? ")"
-    
     assign: ident "=" expr
+        | arr_call "=" expr
 
     var_decl: "val" var_type "=" expr -> var_init
         | "var" var_type "=" expr      -> var_init
@@ -100,16 +109,16 @@ parser = Lark('''
     if: "if" "(" expr ")" stmt_group  ("else" stmt_group)? -> single_if
         | "if" "(" expr ")" stmt_group  "else" if -> multi_if
         
-    fun_declr: "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" ident stmt_group -> common_fun_declr
-        | "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" ident "=" expr -> simple_fun_declr
+    fun_declr: "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" type stmt_group -> common_fun_declr
+        | "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" type "=" expr -> simple_fun_declr
 
     ?stmt: var_decl
+        | "while" "(" expr ")" stmt_group -> while
         | simple_stmt
         | if
         | for
         | stmt_group
         | when
-        | "while" "(" expr ")" stmt_group -> while
         | fun_declr
 
     stmt_list: ( stmt )*
@@ -121,6 +130,10 @@ parser = Lark('''
 
 
 class MelASTBuilder(InlineTransformer):
+    def __init__(self):
+        super().__init__()
+        self.arrCount = 0
+
     def __getattr__(self, item):
         if isinstance(item, str) and item.upper() == item:
             return lambda x: x
@@ -133,19 +146,41 @@ class MelASTBuilder(InlineTransformer):
 
             return get_bin_op_node
 
+        elif item in ('when',):
+            def get_when_node(*args):
+                return WhenNode(args[0], list(args[1:-1]), args[-1],
+                                 **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
+            return get_when_node
+
         elif item in ('common_fun_declr',):
             def get_common_fun_declr_node(*args):
-                args = [args[0], args[-2], args[-1], *args[1:-2]]
+                args = [args[0], args[-2], args[-1], tuple(args[1:-2])]
                 return CommonFunDeclrNode(*args,
                                           **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
             return get_common_fun_declr_node
 
         elif item in ('simple_fun_declr',):
-            def get_common_fun_declr_node(*args):
-                args = [args[0], args[-2], args[-1], *args[1:-2]]
-                return SimpleFunDeclrNode(*args,
+            def get_simple_fun_declr_node(*args):
+                args = [args[0], args[-2], StmtListNode(args[-1]), tuple(args[1:-2])]
+                return CommonFunDeclrNode(*args,
                                           **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
-            return get_common_fun_declr_node
+
+            return get_simple_fun_declr_node
+
+        elif item in ('bool',):
+            def get_bool(*args):
+                return LiteralNode(str(Bools(args[0]).value),
+                                   **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
+            return get_bool
+
+        elif item in ('array_type',):
+            def get_type(*args):
+                return TypeNode(name=args[0], innerType=args[1], **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
+            return get_type
 
         else:
             def get_node(*args):

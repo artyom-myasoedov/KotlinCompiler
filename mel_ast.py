@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Tuple, Optional, Union, List
+from typing import Callable, Tuple, Optional, Union, List, cast
 from enum import Enum
 
 
@@ -47,10 +47,9 @@ class LiteralNode(ExprNode):
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
         self.literal = literal
-        self.value = eval(literal)
 
     def __str__(self) -> str:
-        return '{0}'.format(self.literal)
+        return self.literal
 
 
 class IdentNode(ExprNode):
@@ -78,6 +77,11 @@ class BinOp(Enum):
     LOGICAL_OR = '||'
 
 
+class Bools(Enum):
+    TRUE = 'true'
+    FALSE = 'false'
+
+
 class BinOpNode(ExprNode):
     def __init__(self, op: BinOp, arg1: ExprNode, arg2: ExprNode,
                  row: Optional[int] = None, line: Optional[int] = None, **props):
@@ -96,6 +100,38 @@ class BinOpNode(ExprNode):
 
 class StmtNode(ExprNode):
     pass
+
+
+class TypeNode(StmtNode):
+    def __init__(self, name: str, innerType: Optional[AstNode],
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.name = name
+        self.innerType = innerType
+
+    @property
+    def childs(self) -> Tuple:
+        return ()
+
+    def __str__(self) -> str:
+        return self.getStrView()
+
+    def getInnerTypes(self, level: int) -> Tuple[int, IdentNode]:
+        if not isinstance(self.innerType, IdentNode):
+            node: TypeNode = cast(TypeNode, self.innerType)
+            return node.getInnerTypes(level + 1)
+        return level, self.innerType
+
+    def getStrView(self) -> str:
+        deep, typeName = self.getInnerTypes(0)
+        begin = ''
+        end = ''
+        if deep == 0:
+            return self.name.__str__()
+        for i in range(deep):
+            begin += 'Array<'
+            end += '>'
+        return begin + typeName.__str__() + end
 
 
 class VarDeclNode(StmtNode):
@@ -225,16 +261,16 @@ class WhenInnerNode(StmtNode):
 
 
 class WhenNode(StmtNode):
-    def __init__(self, ident: IdentNode, finalBlock: StmtListNode, *optionallocks: WhenInnerNode,
+    def __init__(self, ident: IdentNode, optionalblocks: List[WhenInnerNode], finalBlock: StmtListNode,
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
         self.ident = ident
-        self.optionallocks = optionallocks
+        self.optionalblocks = optionalblocks
         self.finalBlock = finalBlock
 
     @property
     def childs(self) -> Tuple[StmtNode, ...]:
-        return (self.ident, self.finalBlock) + self.optionallocks
+        return self.ident, *self.optionalblocks, self.finalBlock
 
     def __str__(self) -> str:
         return 'when'
@@ -252,7 +288,7 @@ class VarTypeNode(StmtNode):
         return ()
 
     def __str__(self) -> str:
-        return self.var.name + ':' + self.type.name
+        return self.var.name + ':' + str(self.type)
 
 
 class VarInitNode(StmtNode):
@@ -286,7 +322,7 @@ class WhileNode(StmtNode):
 
 
 class CommonFunDeclrNode(StmtNode):
-    def __init__(self, name: IdentNode, retType: IdentNode, body: StmtListNode, *params: Tuple[VarTypeNode, ...],
+    def __init__(self, name: IdentNode, retType: TypeNode, body: StmtListNode, params: Tuple[VarTypeNode, ...],
                  row: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__(row=row, line=line, **props)
         self.params = params
@@ -309,34 +345,7 @@ class CommonFunDeclrNode(StmtNode):
         return s[:-2] if s != '' else ''
 
     def strRetVal(self) -> str:
-        return ': ' + self.retType.name
-
-
-class SimpleFunDeclrNode(StmtNode):
-    def __init__(self, name: IdentNode, retType: IdentNode, expr: ExprNode, *params: Tuple[VarTypeNode, ...],
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
-        self.params = params
-        self.name = name
-        self.retType = retType
-        self.expr = expr
-
-    @property
-    def childs(self) -> Tuple[ExprNode]:
-        return self.expr,
-
-    def __str__(self) -> str:
-        return 'fun ' + self.name.name + '(' + self.strParams() + ')' + self.strRetVal()
-
-    def strParams(self) -> str:
-        s: str = ''
-        for i in self.params:
-            s += i.__str__()
-            s += ', '
-        return s[:-2] if s != '' else ''
-
-    def strRetVal(self) -> str:
-        return ': ' + self.retType.name
+        return ': ' + str(self.retType)
 
 
 class ForArrNode(StmtNode):
@@ -371,6 +380,48 @@ class ForRangeNode(StmtNode):
     def __str__(self) -> str:
         return 'for ' + self.param.name + ' in ' + self.start.__str__() + '..' + self.end.__str__()
 
+
+class EmptyArrNode(StmtNode):
+    def __init__(self, size: int,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.size = size
+
+    @property
+    def childs(self) -> Tuple:
+        return ()
+
+    def __str__(self) -> str:
+        return 'Array(' + str(self.size) + ')'
+
+
+class ArrOfNode(StmtNode):
+    def __init__(self, *params: ExprNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.params = params
+
+    @property
+    def childs(self) -> Tuple[ExprNode, ...]:
+        return self.params
+
+    def __str__(self) -> str:
+        return 'arrayOf'
+
+
+class ArrCallNode(StmtNode):
+    def __init__(self, arr: IdentNode, index: ExprNode,
+                 row: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(row=row, line=line, **props)
+        self.arr = arr
+        self.index = index
+
+    @property
+    def childs(self) -> Tuple[ExprNode]:
+        return self.index,
+
+    def __str__(self) -> str:
+        return self.arr.__str__() + '[]'
 
 
 _empty = StmtListNode()
