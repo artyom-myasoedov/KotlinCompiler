@@ -112,6 +112,8 @@ parser = Lark('''
     fun_declr: "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" type stmt_group -> common_fun_declr
         | "fun" ident "(" (var_type ( "," var_type )* )? ")" ":" type "=" expr -> simple_fun_declr
 
+    return: "return" expr
+    
     ?stmt: var_decl
         | "while" "(" expr ")" stmt_group -> while
         | simple_stmt
@@ -120,6 +122,7 @@ parser = Lark('''
         | stmt_group
         | when
         | fun_declr
+        | return
 
     stmt_list: ( stmt )*
 
@@ -163,7 +166,7 @@ class MelASTBuilder(InlineTransformer):
 
         elif item in ('simple_fun_declr',):
             def get_simple_fun_declr_node(*args):
-                args = [args[0], args[-2], StmtListNode(args[-1]), tuple(args[1:-2])]
+                args = [args[0], args[-2], StmtListNode(ReturnNode(args[-1])), tuple(args[1:-2])]
                 return CommonFunDeclrNode(*args,
                                           **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
 

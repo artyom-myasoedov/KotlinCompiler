@@ -1,5 +1,6 @@
 import os
 import mel_parser
+import program
 
 
 def main():
@@ -7,6 +8,7 @@ def main():
     
     fun myFunc(i: Int, b: String): Double {
     print()
+    return 1
     }
     
     fun pow(i: Int, b: String): Int = b * i
@@ -48,8 +50,7 @@ def main():
     c[a + 3] =  c[3]
     }
     '''
-    prog = mel_parser.parse(prog)
-    print(*prog.tree, sep=os.linesep)
+    program.execute(prog)
 
 
 if __name__ == "__main__":
