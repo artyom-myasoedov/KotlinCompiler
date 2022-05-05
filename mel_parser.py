@@ -85,7 +85,7 @@ parser = Lark('''
     
     ?array_type: ARRAY "<" type ">"
     
-    arr_call: ident "[" expr "]"
+    arr_call: ident "[" expr "]" ( "[" expr "]" )*
     
     array_init: "arrayOf(" ( expr ( "," expr )* )? ")" -> arr_of
         | "Array(" int ")"                             -> empty_arr
@@ -95,9 +95,9 @@ parser = Lark('''
     assign: ident "=" expr
         | arr_call "=" expr
 
-    var_decl: "val" var_type "=" expr -> var_init
+    ?var_decl: "val" var_type "=" expr -> var_init
         | "var" var_type "=" expr      -> var_init
-        | "var" var_type               
+        | "var" var_type                          
 
     ?simple_stmt: assign
         | call
@@ -114,8 +114,8 @@ parser = Lark('''
 
     return: "return" expr
     
-    ?stmt: var_decl
-        | "while" "(" expr ")" stmt_group -> while
+    ?stmt: "while" "(" expr ")" stmt_group -> while
+        | var_decl
         | simple_stmt
         | if
         | for

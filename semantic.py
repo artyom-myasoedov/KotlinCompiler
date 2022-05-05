@@ -52,9 +52,10 @@ class TypeDesc:
     STR: 'TypeDesc'
 
     def __init__(self, base_type_: Optional[BaseType] = None,
-                 return_type: Optional['TypeDesc'] = None, params: Optional[Tuple['TypeDesc']] = None) -> None:
+                 return_type: Optional['TypeDesc'] = None, array_level: int = 0, params: Optional[Tuple['TypeDesc']] = None) -> None:
         self.base_type = base_type_
         self.return_type = return_type
+        self.array_level = array_level
         self.params = params
 
     @property
@@ -65,11 +66,15 @@ class TypeDesc:
     def is_simple(self) -> bool:
         return not self.func
 
+    @property
+    def is_array(self) -> bool:
+        return self.array_level > 0
+
     def __eq__(self, other: 'TypeDesc'):
         if self.func != other.func:
             return False
         if not self.func:
-            return self.base_type == other.base_type
+            return self.base_type == other.base_type and self.array_level == other.array_level
         else:
             if self.return_type != other.return_type:
                 return False
@@ -81,20 +86,13 @@ class TypeDesc:
             return True
 
     @staticmethod
-    def from_base_type(base_type_: BaseType) -> 'TypeDesc':
-        return getattr(TypeDesc, base_type_.name)
-
-    @staticmethod
-    def from_str(str_decl: str) -> 'TypeDesc':
-        try:
-            base_type_ = BaseType(str_decl)
-            return TypeDesc.from_base_type(base_type_)
-        except:
-            raise SemanticException('Неизвестный тип {}'.format(str_decl))
+    def from_base_type(base_type_: BaseType, arr_level: int = 0) -> 'TypeDesc':
+        return TypeDesc(base_type_=base_type_, array_level=arr_level)
 
     def __str__(self) -> str:
         if not self.func:
-            return str(self.base_type)
+            res: str = 'Array<' * self.array_level + str(self.base_type) + '>' * self.array_level
+            return res
         else:
             res = str(self.return_type)
             res += ' ('
@@ -104,10 +102,6 @@ class TypeDesc:
                 res += str(param)
             res += ')'
         return res
-
-
-for base_type in BaseType:
-    setattr(TypeDesc, base_type.name, TypeDesc(base_type))
 
 
 class ScopeType(Enum):
@@ -302,11 +296,10 @@ BIN_OP_TYPE_COMPATIBILITY = {
 
 
 BUILT_IN_OBJECTS = '''
-    string read() { }
-    void print(string p0) { }
-    void println(string p0) { }
-    int to_int(string p0) { }
-    int to_float(string p0) { }
+    readLine(): String { }
+    println(p0: String): Void { }
+    toInt(p0: String): Int { }
+    toFloat(p0: String): Float { }
 '''
 
 

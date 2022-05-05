@@ -47,7 +47,7 @@ def main():
     plus(a)
     var c: Array<Array<Double>> = Array(30)
     var c: Array<Array<Double>> = arrayOf(30, call(1), 4.3)
-    c[a + 3] =  c[3]
+    c[a + 3][2] =  c[3]
     }
     '''
     program.execute(prog)
