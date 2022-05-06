@@ -51,7 +51,9 @@ def main():
     c[1][1]
     }
     '''
-    program.execute(prog)
+    # program.execute(prog)
+    c = []
+    print(c[0])
 
 if __name__ == "__main__":
     main()
