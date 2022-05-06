@@ -607,16 +607,15 @@ class ForArrNode(StmtNode):
     def __str__(self) -> str:
         return 'for ' + self.param.name + ' in ' + self.arr.name
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
-        scope = IdentScope(scope)
-        self.init.semantic_check(scope)
-        if self.cond == EMPTY_STMT:
-            self.cond = LiteralNode('true')
-        self.cond.semantic_check(scope)
-        self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
-        self.step.semantic_check(scope)
-        self.body.semantic_check(IdentScope(scope))
-        self.node_type = TypeDesc.VOID
+    def semantic_check(self, scope: IdentScope) -> None:
+        self.arr.semantic_check(scope)
+        scope_inner = IdentScope(scope)
+        if self.arr.node_type.array_level < 1:
+            self.semantic_error(self.arr.name + " не является массивом")
+        self.param.node_type = TypeDesc(base_type_=self.arr.node_type.base_type,
+                                        array_level=self.arr.node_type.array_level - 1)
+        self.param.node_ident = scope_inner.add_ident(IdentDesc(self.param.name, self.param.node_type, ScopeType.LOCAL))
+        self.body.semantic_check(scope_inner)
 
 
 class ForRangeNode(StmtNode):
@@ -646,11 +645,11 @@ class ForRangeNode(StmtNode):
             else:
                 self.param.node_type = TypeDesc(base_type_=BaseType.INT, array_level=0)
                 self.param.node_ident = IdentDesc(self.param.name, TypeDesc(base_type_=BaseType.INT,
-                                                                        array_level=0), ScopeType.LOCAL)
-        else: self.semantic_error("Неверно введены параметры для for")
+                                                                            array_level=0), ScopeType.LOCAL)
+        else:
+            self.semantic_error("Неверно введены параметры для for")
         scope_inner.add_ident(self.param.node_ident)
         self.body.semantic_check(scope_inner)
-
 
 
 class EmptyArrNode(StmtNode):
