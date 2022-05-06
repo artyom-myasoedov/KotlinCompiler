@@ -635,16 +635,22 @@ class ForRangeNode(StmtNode):
     def __str__(self) -> str:
         return 'for ' + self.param.name + ' in ' + self.start.__str__() + '..' + self.end.__str__()
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
-        scope = IdentScope(scope)
-        self.init.semantic_check(scope)
-        if self.cond == EMPTY_STMT:
-            self.cond = LiteralNode('true')
-        self.cond.semantic_check(scope)
-        self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
-        self.step.semantic_check(scope)
-        self.body.semantic_check(IdentScope(scope))
-        self.node_type = TypeDesc.VOID
+    def semantic_check(self, scope: IdentScope) -> None:
+        scope_inner = IdentScope(scope)
+        self.start.semantic_check(scope)
+        self.end.semantic_check(scope)
+        self.param.semantic_check(scope_inner)
+        if self.start == BaseType.INT and self.end == BaseType.INT:
+            if self.start > self.end:
+                self.semantic_error("Неверно задан диапозон для for")
+            else:
+                self.param.node_type = TypeDesc(base_type_=BaseType.INT, array_level=0)
+                self.param.node_ident = IdentDesc(self.param.name, TypeDesc(base_type_=BaseType.INT,
+                                                                        array_level=0), ScopeType.LOCAL)
+        else: self.semantic_error("Неверно введены параметры для for")
+        scope_inner.add_ident(self.param.node_ident)
+        self.body.semantic_check(scope_inner)
+
 
 
 class EmptyArrNode(StmtNode):
@@ -660,7 +666,8 @@ class EmptyArrNode(StmtNode):
     def __str__(self) -> str:
         return 'Array(' + str(self.size) + ')'
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo подставлять тип при присваивании
+    def semantic_check(self, scope: IdentScope) -> None:
+        if self.size < 1: self.semantic_error("Нельзя создать массив размером 0")
 
 
 class ArrOfNode(StmtNode):
