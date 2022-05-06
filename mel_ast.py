@@ -373,6 +373,9 @@ class WhenInnerNode(StmtNode):
         return '->'
 
     def semantic_check(self, scope: IdentScope) -> None:
+        self.expr.semantic_check(scope)
+        self.stmt.semantic_check(IdentScope(scope))
+
 
 
 # todo
@@ -394,9 +397,14 @@ class WhenNode(StmtNode):
         return 'when'
 
     def semantic_check(self, scope: IdentScope) -> None:
-
-
-# todo
+        self.ident.semantic_check(scope)
+        for i in self.optionalblocks:
+            i.semantic_check(IdentScope(scope))
+            if self.ident.node_type == i.expr.node_type:
+                self.semantic_error("неверный тип в when")
+        self.finalBlock.semantic_check(IdentScope(scope))
+        if self.ident.node_type == self.finalBlock.expr.node_type:
+            self.finalBlock.semantic_error("неверный тип в when")
 
 
 class TypeConvertNode(ExprNode):
