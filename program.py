@@ -12,11 +12,11 @@ def execute(prog: str) -> None:
     print()
 
     print('semantic_check:')
-    # try:
-    #     scope = semantic.prepare_global_scope()
-    #     prog.semantic_check(scope)
-    #     print(*prog.tree, sep=os.linesep)
-    # except semantic.SemanticException as e:
-    #     print('Ошибка: {}'.format(e.message))
-    #     return
-    # print()
+    try:
+        scope = semantic.prepare_global_scope()
+        prog.semantic_check(scope)
+        print(*prog.tree, sep=os.linesep)
+    except semantic.SemanticException as e:
+        print('Ошибка: {}'.format(e.message))
+        return
+    print()

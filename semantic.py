@@ -25,7 +25,7 @@ class BaseType(Enum):
     """Перечисление для базовых типов данных
     """
 
-    VOID = 'void'
+    VOID = 'Void'
     INT = 'Int'
     FLOAT = 'Float'
     BOOL = 'Boolean'

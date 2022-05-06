@@ -3,7 +3,7 @@ from typing import Callable, Tuple, Optional, Union, List, cast
 from enum import Enum
 
 from semantic import IdentScope, TypeDesc, TYPE_CONVERTIBILITY, BinOp, IdentDesc, SemanticException, \
-    BIN_OP_TYPE_COMPATIBILITY, ScopeType
+    BIN_OP_TYPE_COMPATIBILITY, ScopeType, BaseType
 
 
 class AstNode(ABC):
@@ -136,7 +136,7 @@ class BinOpNode(ExprNode):
         return str(self.op.value)
 
     def semantic_check(self, scope: IdentScope) -> None:
-        #todo
+        # todo
         self.arg1.semantic_check(scope)
         self.arg2.semantic_check(scope)
 
@@ -161,8 +161,7 @@ class BinOpNode(ExprNode):
                         self.arg1 = type_convert(self.arg1, TypeDesc.from_base_type(arg1_type))
                         self.node_type = TypeDesc.from_base_type(compatibility[args_types])
                         return
-        #if self.arg1.node_type.is_array and self.arg2.node_type.is_array:
-
+        # if self.arg1.node_type.is_array and self.arg2.node_type.is_array:
 
         self.semantic_error("Оператор {} не применим к типам ({}, {})".format(
             self.op, self.arg1.node_type, self.arg2.node_type
@@ -193,7 +192,7 @@ class TypeNode(StmtNode):
     def __str__(self) -> str:
         return self.getStrView()
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         if self.name is None:
             self.semantic_error('Неизвестный тип {}'.format(self.name))
 
@@ -230,7 +229,7 @@ class CallNode(StmtNode):
     def __str__(self) -> str:
         return 'call'
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         func = scope.get_ident(self.func.name)
         if func is None:
             self.semantic_error('Функция {} не найдена'.format(self.func.name))
@@ -282,7 +281,7 @@ class AssignNode(StmtNode):
     def __str__(self) -> str:
         return '='
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         self.var.semantic_check(scope)
         self.val.semantic_check(scope)
         self.val = type_convert(self.val, self.var.node_type, self, 'присваиваемое значение')
@@ -304,7 +303,7 @@ class SingleIfNode(StmtNode):
     def __str__(self) -> str:
         return 'if'
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         self.cond.semantic_check(scope)
         self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
         self.then_stmt.semantic_check(IdentScope(scope))
@@ -328,7 +327,7 @@ class MultiIfNode(StmtNode):
     def __str__(self) -> str:
         return 'if'
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         self.cond.semantic_check(scope)
         self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
         self.then_stmt.semantic_check(IdentScope(scope))
@@ -374,7 +373,9 @@ class WhenInnerNode(StmtNode):
         return '->'
 
     def semantic_check(self, scope: IdentScope) -> None:
-        #todo
+
+
+# todo
 
 
 class WhenNode(StmtNode):
@@ -393,7 +394,9 @@ class WhenNode(StmtNode):
         return 'when'
 
     def semantic_check(self, scope: IdentScope) -> None:
-        #todo
+
+
+# todo
 
 
 class TypeConvertNode(ExprNode):
@@ -456,7 +459,7 @@ class ReturnNode(StmtNode):
     def childs(self) -> Tuple[ExprNode]:
         return self.val,
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         self.val.semantic_check(IdentScope(scope))
         func = scope.curr_func
         if func is None:
@@ -479,7 +482,7 @@ class VarTypeNode(StmtNode):
     def __str__(self) -> str:
         return self.var.name + ':' + str(self.type)
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo typedesc arrayLevel
+    def semantic_check(self, scope: IdentScope) -> None:  # todo typedesc arrayLevel
         self.type.semantic_check(scope)
         self.var.node_type = self.type.type
         try:
@@ -504,7 +507,9 @@ class VarInitNode(StmtNode):
         return 'var'
 
     def semantic_check(self, scope: IdentScope) -> None:
-        #todo
+
+
+# todo
 
 
 class WhileNode(StmtNode):
@@ -521,7 +526,7 @@ class WhileNode(StmtNode):
     def __str__(self) -> str:
         return 'while'
 
-    def semantic_check(self, scope: IdentScope) -> None: #todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         scope = IdentScope(scope)
         self.init.semantic_check(scope)
         if self.cond == EMPTY_STMT:
@@ -531,8 +536,6 @@ class WhileNode(StmtNode):
         self.step.semantic_check(scope)
         self.body.semantic_check(IdentScope(scope))
         self.node_type = TypeDesc.VOID
-
-
 
 
 class CommonFunDeclrNode(StmtNode):
@@ -563,7 +566,8 @@ class CommonFunDeclrNode(StmtNode):
 
     def semantic_check(self, scope: IdentScope) -> None:
         if scope.curr_func:
-            self.semantic_error("Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
+            self.semantic_error(
+                "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
         parent_scope = scope
         self.type.semantic_check(scope)
         scope = IdentScope(scope)
@@ -603,7 +607,7 @@ class ForArrNode(StmtNode):
     def __str__(self) -> str:
         return 'for ' + self.param.name + ' in ' + self.arr.name
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         scope = IdentScope(scope)
         self.init.semantic_check(scope)
         if self.cond == EMPTY_STMT:
@@ -631,7 +635,7 @@ class ForRangeNode(StmtNode):
     def __str__(self) -> str:
         return 'for ' + self.param.name + ' in ' + self.start.__str__() + '..' + self.end.__str__()
 
-    def semantic_check(self, scope: IdentScope) -> None:#todo
+    def semantic_check(self, scope: IdentScope) -> None:  # todo
         scope = IdentScope(scope)
         self.init.semantic_check(scope)
         if self.cond == EMPTY_STMT:
@@ -689,7 +693,19 @@ class ArrCallNode(ExprNode):
     def __str__(self) -> str:
         return self.arr.__str__() + '[]' * len(self.indexes)
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo выводить тип для вызываемого уровня массива
+    def semantic_check(self, scope: IdentScope) -> None:
+        self.arr.semantic_check(scope)
+        count = 0
+        for i in self.indexes:
+            i.semantic_check(scope)
+            count += 1
+            if self.arr.node_type.array_level < count:
+                self.semantic_error("Размерность массива " + self.arr.name + " = " + str(
+                    self.arr.node_type.array_level) + ", а обращение идёт к элементу вложенности уровня " + str(count))
+            if i.node_type.base_type != BaseType.INT or not i.node_type.is_simple or i.node_type.is_array:
+                self.semantic_error("Индекс массива не целое число")
+        self.node_type = TypeDesc(base_type_=self.arr.node_type.base_type,
+                                  array_level=self.arr.node_type.array_level - count)
 
 
 _empty = StmtListNode()
