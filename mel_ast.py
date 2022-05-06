@@ -482,14 +482,11 @@ class VarTypeNode(StmtNode):
     def __str__(self) -> str:
         return self.var.name + ':' + str(self.type)
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo typedesc arrayLevel
+    def semantic_check(self, scope: IdentScope) -> None:
         self.type.semantic_check(scope)
-        self.var.node_type = self.type.type
-        try:
-            self.var.node_ident = scope.add_ident(IdentDesc(self.var.name, self.type.type, ScopeType.PARAM))
-        except SemanticException:
-            raise self.var.semantic_error('Параметр {} уже объявлен'.format(self.var.name))
-        self.node_type = TypeDesc.VOID
+        self.var.node_type = self.type
+        self.node_type = self.type
+        self.var.node_ident = scope.add_ident(IdentDesc(self.var.name, self.type.node_type, ScopeType.PARAM))
 
 
 class VarInitNode(StmtNode):
@@ -507,9 +504,10 @@ class VarInitNode(StmtNode):
         return 'var'
 
     def semantic_check(self, scope: IdentScope) -> None:
-
-
-# todo
+        self.varType.semantic_check(scope)
+        self.val.semantic_check(scope)
+        if self.varType.node_type != self.val.node_type:
+            self.semantic_error("неверное присвоение типа")
 
 
 class WhileNode(StmtNode):
