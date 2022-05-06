@@ -194,9 +194,11 @@ class TypeNode(StmtNode):
     def __str__(self) -> str:
         return self.getStrView()
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
+    def semantic_check(self, scope: IdentScope) -> None:
         if self.name is None:
             self.semantic_error('Неизвестный тип {}'.format(self.name))
+        (lvl, base_type) = self.getInnerTypes(0)
+        self.node_type = TypeDesc(base_type_=BaseType(base_type), array_level=lvl)
 
     def getInnerTypes(self, level: int) -> Tuple[int, IdentNode]:
         if not isinstance(self.innerType, IdentNode):
@@ -231,7 +233,7 @@ class CallNode(StmtNode):
     def __str__(self) -> str:
         return 'call'
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
+    def semantic_check(self, scope: IdentScope) -> None:
         func = scope.get_ident(self.func.name)
         if func is None:
             self.semantic_error('Функция {} не найдена'.format(self.func.name))
