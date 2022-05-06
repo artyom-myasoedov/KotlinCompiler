@@ -136,11 +136,13 @@ class BinOpNode(ExprNode):
         return str(self.op.value)
 
     def semantic_check(self, scope: IdentScope) -> None:
-        # todo
         self.arg1.semantic_check(scope)
         self.arg2.semantic_check(scope)
+        if self.arg1.node_type.is_array and self.arg2.node_type.is_array:
+            self.node_type = TypeDesc(base_type_=BaseType.BOOL)
+            return
 
-        if self.arg1.node_type.is_simple or self.arg2.node_type.is_simple:
+        elif self.arg1.node_type.is_simple or self.arg2.node_type.is_simple:
             compatibility = BIN_OP_TYPE_COMPATIBILITY[self.op]
             args_types = (self.arg1.node_type.base_type, self.arg2.node_type.base_type)
             if args_types in compatibility:
