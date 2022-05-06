@@ -375,10 +375,7 @@ class WhenInnerNode(StmtNode):
     def semantic_check(self, scope: IdentScope) -> None:
         self.expr.semantic_check(scope)
         self.stmt.semantic_check(IdentScope(scope))
-
-
-
-# todo
+        self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class WhenNode(StmtNode):
@@ -403,8 +400,7 @@ class WhenNode(StmtNode):
             if self.ident.node_type == i.expr.node_type:
                 self.semantic_error("неверный тип в when")
         self.finalBlock.semantic_check(IdentScope(scope))
-        if self.ident.node_type == self.finalBlock.expr.node_type:
-            self.finalBlock.semantic_error("неверный тип в when")
+        self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class TypeConvertNode(ExprNode):
@@ -441,7 +437,7 @@ def type_convert(expr: ExprNode, type_: TypeDesc, except_node: Optional[AstNode]
         except_node.semantic_error('Тип выражения не определен')
     if expr.node_type == type_:
         return expr
-    if expr.node_type.is_simple and type_.is_simple and \
+    if expr.node_type.is_simple and type_.is_simple and not expr.node_type.is_array and not type_.is_array and \
             expr.node_type.base_type in TYPE_CONVERTIBILITY and type_.base_type in TYPE_CONVERTIBILITY[
         expr.node_type.base_type]:
         return TypeConvertNode(expr, type_)
@@ -467,13 +463,13 @@ class ReturnNode(StmtNode):
     def childs(self) -> Tuple[ExprNode]:
         return self.val,
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
+    def semantic_check(self, scope: IdentScope) -> None:
         self.val.semantic_check(IdentScope(scope))
         func = scope.curr_func
         if func is None:
             self.semantic_error('Оператор return применим только к функции')
         self.val = type_convert(self.val, func.func.type.return_type, self, 'возвращаемое значение')
-        self.node_type = TypeDesc.VOID
+        self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class VarTypeNode(StmtNode):
@@ -482,19 +478,23 @@ class VarTypeNode(StmtNode):
         super().__init__(row=row, line=line, **props)
         self.var = var
         self.type = _type
+        self.curr_scope = ScopeType.GLOBAL
 
     @property
     def childs(self) -> Tuple:
         return ()
+
+    def set_param_scope(self) -> None:
+        self.curr_scope = ScopeType.PARAM
 
     def __str__(self) -> str:
         return self.var.name + ':' + str(self.type)
 
     def semantic_check(self, scope: IdentScope) -> None:
         self.type.semantic_check(scope)
-        self.var.node_type = self.type
-        self.node_type = self.type
-        self.var.node_ident = scope.add_ident(IdentDesc(self.var.name, self.type.node_type, ScopeType.PARAM))
+        self.var.node_type = self.type.node_type
+        self.node_type = self.type.node_type
+        self.var.node_ident = scope.add_ident(IdentDesc(self.var.name, self.type.node_type, self.curr_scope))
 
 
 class VarInitNode(StmtNode):
@@ -532,16 +532,12 @@ class WhileNode(StmtNode):
     def __str__(self) -> str:
         return 'while'
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
-        scope = IdentScope(scope)
-        self.init.semantic_check(scope)
-        if self.cond == EMPTY_STMT:
-            self.cond = LiteralNode('true')
+    def semantic_check(self, scope: IdentScope) -> None:
+        scope_inner = IdentScope(scope)
         self.cond.semantic_check(scope)
         self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
-        self.step.semantic_check(scope)
-        self.body.semantic_check(IdentScope(scope))
-        self.node_type = TypeDesc.VOID
+        self.body.semantic_check(scope_inner)
+        self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class CommonFunDeclrNode(StmtNode):
@@ -575,27 +571,28 @@ class CommonFunDeclrNode(StmtNode):
             self.semantic_error(
                 "Объявление функции ({}) внутри другой функции не поддерживается".format(self.name.name))
         parent_scope = scope
-        self.type.semantic_check(scope)
-        scope = IdentScope(scope)
+        self.retType.semantic_check(scope)
+        scope_inner = IdentScope(scope)
 
         # временно хоть какое-то значение, чтобы при добавлении параметров находить scope функции
-        scope.func = EMPTY_IDENT
+        scope_inner.func = IdentDesc('', TypeDesc(base_type_=BaseType.VOID))
         params = []
         for param in self.params:
             # при проверке параметров происходит их добавление в scope
-            param.semantic_check(scope)
-            params.append(param.type.type)
+            param.set_param_scope()
+            param.semantic_check(scope_inner)
+            params.append(param.type.node_type)
 
-        type_ = TypeDesc(None, self.type.type, tuple(params))
+        type_ = TypeDesc(None, self.retType.node_type, params=tuple(params))
         func_ident = IdentDesc(self.name.name, type_)
-        scope.func = func_ident
+        scope_inner.func = func_ident
         self.name.node_type = type_
         try:
             self.name.node_ident = parent_scope.curr_global.add_ident(func_ident)
         except SemanticException as e:
             self.name.semantic_error("Повторное объявление функции {}".format(self.name.name))
-        self.body.semantic_check(scope)
-        self.node_type = TypeDesc.VOID
+        self.body.semantic_check(scope_inner)
+        self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class ForArrNode(StmtNode):
