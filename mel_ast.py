@@ -676,7 +676,17 @@ class ArrOfNode(StmtNode):
     def __str__(self) -> str:
         return 'arrayOf'
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo проверять тип при присваивании
+    def semantic_check(self, scope: IdentScope) -> None:
+        for i in self.params:
+            i.semantic_check(scope)
+        if len(self.params) == 0:
+            self.semantic_error("В массиве отсутствуют элементы")
+        prev = self.params[0]
+        for i in self.params:
+            if i.node_type != prev.node_type:
+                self.semantic_error(
+                    "Типы элементов массива " + str(prev.node_type) + " и " + str(i.node_type) + " не совпадают")
+        self.node_type = TypeDesc(base_type_=prev.node_type.base_type, array_level=prev.node_type.array_level + 1)
 
 
 class ArrCallNode(ExprNode):
