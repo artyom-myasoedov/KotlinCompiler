@@ -281,7 +281,7 @@ class AssignNode(StmtNode):
     def __str__(self) -> str:
         return '='
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
+    def semantic_check(self, scope: IdentScope) -> None:
         self.var.semantic_check(scope)
         self.val.semantic_check(scope)
         self.val = type_convert(self.val, self.var.node_type, self, 'присваиваемое значение')
@@ -303,13 +303,13 @@ class SingleIfNode(StmtNode):
     def __str__(self) -> str:
         return 'if'
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
+    def semantic_check(self, scope: IdentScope) -> None:
         self.cond.semantic_check(scope)
         self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
         self.then_stmt.semantic_check(IdentScope(scope))
         if self.else_stmt:
             self.else_stmt.semantic_check(IdentScope(scope))
-        self.node_type = TypeDesc.VOID
+        self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class MultiIfNode(StmtNode):
@@ -327,13 +327,12 @@ class MultiIfNode(StmtNode):
     def __str__(self) -> str:
         return 'if'
 
-    def semantic_check(self, scope: IdentScope) -> None:  # todo
+    def semantic_check(self, scope: IdentScope) -> None:
         self.cond.semantic_check(scope)
         self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
         self.then_stmt.semantic_check(IdentScope(scope))
-        if self.else_stmt:
-            self.else_stmt.semantic_check(IdentScope(scope))
-        self.node_type = TypeDesc.VOID
+        self.else_stmt.semantic_check(scope)
+        self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class StmtListNode(StmtNode):
