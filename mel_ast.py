@@ -9,9 +9,9 @@ from semantic import IdentScope, TypeDesc, TYPE_CONVERTIBILITY, BinOp, IdentDesc
 class AstNode(ABC):
     init_action: Callable[['AstNode'], None] = None
 
-    def __init__(self, row: Optional[int] = None, line: Optional[int] = None, **props):
+    def __init__(self, column: Optional[int] = None, line: Optional[int] = None, **props):
         super().__init__()
-        self.row = row
+        self.column = column
         self.line = line
         for k, v in props.items():
             setattr(self, k, v)
@@ -40,7 +40,7 @@ class AstNode(ABC):
         return self.to_str() + (' : ' + r if r else '')
 
     def semantic_error(self, message: str):
-        raise SemanticException(message, self.row, self.line)
+        raise SemanticException(message, self.line, self.column)
 
     def semantic_check(self, scope: IdentScope) -> None:
         pass
@@ -70,8 +70,8 @@ class ExprNode(AstNode):
 
 class LiteralNode(ExprNode):
     def __init__(self, literal: str,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.literal = literal
         if literal in ('true', 'false'):
             self.value = bool(literal)
@@ -83,22 +83,22 @@ class LiteralNode(ExprNode):
 
     def semantic_check(self, scope: IdentScope) -> None:
         if isinstance(self.value, bool):
-            self.node_type = TypeDesc.BOOL
+            self.node_type = TypeDesc(base_type_=BaseType.BOOL)
         # проверка должна быть позже bool, т.к. bool наследник от int
         elif isinstance(self.value, int):
-            self.node_type = TypeDesc.INT
+            self.node_type = TypeDesc(base_type_=BaseType.INT)
         elif isinstance(self.value, float):
-            self.node_type = TypeDesc.FLOAT
+            self.node_type = TypeDesc(base_type_=BaseType.FLOAT)
         elif isinstance(self.value, str):
-            self.node_type = TypeDesc.STR
+            self.node_type = TypeDesc(base_type_=BaseType.STR)
         else:
             self.semantic_error('Неизвестный тип {} для {}'.format(type(self.value), self.value))
 
 
 class IdentNode(ExprNode):
     def __init__(self, name: str,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.name = str(name)
 
     def __str__(self) -> str:
@@ -122,8 +122,8 @@ class Bools(Enum):
 
 class BinOpNode(ExprNode):
     def __init__(self, op: BinOp, arg1: ExprNode, arg2: ExprNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.op = op
         self.arg1 = arg1
         self.arg2 = arg2
@@ -177,9 +177,9 @@ class StmtNode(ExprNode):
 
 
 class TypeNode(StmtNode):
-    def __init__(self, name: str, innerType: Optional[AstNode],
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+    def __init__(self, name: IdentNode, innerType: Optional[AstNode],
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.name = name
         self.innerType = innerType
 
@@ -198,13 +198,16 @@ class TypeNode(StmtNode):
         if self.name is None:
             self.semantic_error('Неизвестный тип {}'.format(self.name))
         (lvl, base_type) = self.getInnerTypes(0)
-        self.node_type = TypeDesc(base_type_=BaseType(base_type), array_level=lvl)
+        try:
+            self.node_type = TypeDesc(base_type_=BaseType(base_type.name), array_level=lvl)
+        except:
+            self.semantic_error("Несуществующий тип " + base_type.name)
 
     def getInnerTypes(self, level: int) -> Tuple[int, IdentNode]:
-        if not isinstance(self.innerType, IdentNode):
+        if self.innerType is not None:
             node: TypeNode = cast(TypeNode, self.innerType)
             return node.getInnerTypes(level + 1)
-        return level, self.innerType
+        return level, self.name
 
     def getStrView(self) -> str:
         deep, typeName = self.getInnerTypes(0)
@@ -220,8 +223,8 @@ class TypeNode(StmtNode):
 
 class CallNode(StmtNode):
     def __init__(self, func: IdentNode, *params: Tuple[ExprNode],
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.func = func
         self.params = params
 
@@ -273,9 +276,11 @@ class CallNode(StmtNode):
 
 class AssignNode(StmtNode):
     def __init__(self, var: IdentNode, val: ExprNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.var = var
+        self.column = var.column
+        self.line = var.line
         self.val = val
 
     @property
@@ -288,14 +293,19 @@ class AssignNode(StmtNode):
     def semantic_check(self, scope: IdentScope) -> None:
         self.var.semantic_check(scope)
         self.val.semantic_check(scope)
+        if isinstance(self.val, EmptyArrNode):
+            if self.var.node_type.is_array:
+                self.val.node_type = self.var.node_type
+            else:
+                self.semantic_error("Нельзя присвоить типу " + self.var.node_type.base_type.name + " тип массива")
         self.val = type_convert(self.val, self.var.node_type, self, 'присваиваемое значение')
         self.node_type = self.var.node_type
 
 
 class SingleIfNode(StmtNode):
     def __init__(self, cond: ExprNode, then_stmt: StmtNode, else_stmt: Optional[StmtNode] = None,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.cond = cond
         self.then_stmt = then_stmt
         self.else_stmt = else_stmt
@@ -309,7 +319,7 @@ class SingleIfNode(StmtNode):
 
     def semantic_check(self, scope: IdentScope) -> None:
         self.cond.semantic_check(scope)
-        self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
+        self.cond = type_convert(self.cond, TypeDesc(base_type_=BaseType.BOOL), None, 'условие')
         self.then_stmt.semantic_check(IdentScope(scope))
         if self.else_stmt:
             self.else_stmt.semantic_check(IdentScope(scope))
@@ -318,8 +328,8 @@ class SingleIfNode(StmtNode):
 
 class MultiIfNode(StmtNode):
     def __init__(self, cond: ExprNode, then_stmt: StmtNode, else_stmt: StmtNode = None,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.cond = cond
         self.then_stmt = then_stmt
         self.else_stmt = else_stmt
@@ -333,7 +343,7 @@ class MultiIfNode(StmtNode):
 
     def semantic_check(self, scope: IdentScope) -> None:
         self.cond.semantic_check(scope)
-        self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
+        self.cond = type_convert(self.cond, TypeDesc(base_type_=BaseType.BOOL), None, 'условие')
         self.then_stmt.semantic_check(IdentScope(scope))
         self.else_stmt.semantic_check(scope)
         self.node_type = TypeDesc(base_type_=BaseType.VOID)
@@ -341,8 +351,8 @@ class MultiIfNode(StmtNode):
 
 class StmtListNode(StmtNode):
     def __init__(self, *exprs: StmtNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.exprs = exprs
         self.program = False
 
@@ -358,13 +368,13 @@ class StmtListNode(StmtNode):
             scope = IdentScope(scope)
         for expr in self.exprs:
             expr.semantic_check(scope)
-        self.node_type = TypeDesc.VOID
+        self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class WhenInnerNode(StmtNode):
     def __init__(self, expr: ExprNode, stmt: StmtNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.expr = expr
         self.stmt = stmt
 
@@ -383,8 +393,8 @@ class WhenInnerNode(StmtNode):
 
 class WhenNode(StmtNode):
     def __init__(self, ident: IdentNode, optionalblocks: List[WhenInnerNode], finalBlock: StmtListNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.ident = ident
         self.optionalblocks = optionalblocks
         self.finalBlock = finalBlock
@@ -400,7 +410,7 @@ class WhenNode(StmtNode):
         self.ident.semantic_check(scope)
         for i in self.optionalblocks:
             i.semantic_check(IdentScope(scope))
-            if self.ident.node_type == i.expr.node_type:
+            if self.ident.node_type != i.expr.node_type:
                 self.semantic_error("неверный тип в when")
         self.finalBlock.semantic_check(IdentScope(scope))
         self.node_type = TypeDesc(base_type_=BaseType.VOID)
@@ -412,8 +422,8 @@ class TypeConvertNode(ExprNode):
     """
 
     def __init__(self, expr: ExprNode, type_: TypeDesc,
-                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
-        super().__init__(row=row, col=col, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props) -> None:
+        super().__init__(column=column, line=line, **props)
         self.expr = expr
         self.type = type_
         self.node_type = type_
@@ -443,7 +453,7 @@ def type_convert(expr: ExprNode, type_: TypeDesc, except_node: Optional[AstNode]
     if expr.node_type.is_simple and type_.is_simple and not expr.node_type.is_array and not type_.is_array and \
             expr.node_type.base_type in TYPE_CONVERTIBILITY and type_.base_type in TYPE_CONVERTIBILITY[
         expr.node_type.base_type]:
-        return TypeConvertNode(expr, type_)
+        return TypeConvertNode(expr, type_, expr.column, expr.line)
     else:
         (except_node if except_node else expr).semantic_error('Тип {0}{2} не конвертируется в {1}'.format(
             expr.node_type, type_, ' ({})'.format(comment) if comment else ''
@@ -455,8 +465,10 @@ class ReturnNode(StmtNode):
     """
 
     def __init__(self, val: ExprNode,
-                 row: Optional[int] = None, col: Optional[int] = None, **props) -> None:
-        super().__init__(row=row, col=col, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props) -> None:
+        super().__init__(column=column, line=line, **props)
+        self.column = val.column
+        self.line = val.line
         self.val = val
 
     def __str__(self) -> str:
@@ -477,8 +489,8 @@ class ReturnNode(StmtNode):
 
 class VarTypeNode(StmtNode):
     def __init__(self, var: IdentNode, _type: TypeNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.var = var
         self.type = _type
         self.curr_scope = ScopeType.GLOBAL
@@ -502,8 +514,8 @@ class VarTypeNode(StmtNode):
 
 class VarInitNode(StmtNode):
     def __init__(self, varType: VarTypeNode, val: ExprNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.varType = varType
         self.val = val
 
@@ -517,14 +529,19 @@ class VarInitNode(StmtNode):
     def semantic_check(self, scope: IdentScope) -> None:
         self.varType.semantic_check(scope)
         self.val.semantic_check(scope)
+        if isinstance(self.val, EmptyArrNode):
+            if self.varType.node_type.is_array:
+                self.val.node_type = self.varType.node_type
+            else:
+                self.semantic_error("Нельзя присвоить типу " + self.varType.node_type.base_type.name + " тип массива")
         if self.varType.node_type != self.val.node_type:
             self.semantic_error("неверное присвоение типа")
 
 
 class WhileNode(StmtNode):
     def __init__(self, cond: ExprNode, body: StmtListNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.cond = cond
         self.body = body
 
@@ -538,15 +555,15 @@ class WhileNode(StmtNode):
     def semantic_check(self, scope: IdentScope) -> None:
         scope_inner = IdentScope(scope)
         self.cond.semantic_check(scope)
-        self.cond = type_convert(self.cond, TypeDesc.BOOL, None, 'условие')
+        self.cond = type_convert(self.cond, TypeDesc(base_type_=BaseType.BOOL), None, 'условие')
         self.body.semantic_check(scope_inner)
         self.node_type = TypeDesc(base_type_=BaseType.VOID)
 
 
 class CommonFunDeclrNode(StmtNode):
     def __init__(self, name: IdentNode, retType: TypeNode, body: StmtListNode, params: Tuple[VarTypeNode, ...],
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.params = params
         self.name = name
         self.retType = retType
@@ -600,8 +617,8 @@ class CommonFunDeclrNode(StmtNode):
 
 class ForArrNode(StmtNode):
     def __init__(self, param: IdentNode, arr: IdentNode, body: StmtListNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.param = param
         self.body = body
         self.arr = arr
@@ -625,9 +642,9 @@ class ForArrNode(StmtNode):
 
 
 class ForRangeNode(StmtNode):
-    def __init__(self, param: IdentNode, start: ExprNode, end: ExprNode, body: StmtListNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+    def __init__(self, param: IdentNode, start: LiteralNode, end: LiteralNode, body: StmtListNode,
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.param = param
         self.body = body
         self.start = start
@@ -644,24 +661,23 @@ class ForRangeNode(StmtNode):
         scope_inner = IdentScope(scope)
         self.start.semantic_check(scope)
         self.end.semantic_check(scope)
-        self.param.semantic_check(scope_inner)
-        if self.start == BaseType.INT and self.end == BaseType.INT:
-            if self.start > self.end:
+        if self.start.node_type == TypeDesc(base_type_=BaseType.INT) and self.end.node_type == TypeDesc(
+                base_type_=BaseType.INT):
+            if self.start.value > self.end.value:
                 self.semantic_error("Неверно задан диапозон для for")
             else:
                 self.param.node_type = TypeDesc(base_type_=BaseType.INT, array_level=0)
-                self.param.node_ident = IdentDesc(self.param.name, TypeDesc(base_type_=BaseType.INT,
-                                                                            array_level=0), ScopeType.LOCAL)
+                self.param.node_ident = scope_inner.add_ident(
+                    IdentDesc(self.param.name, TypeDesc(base_type_=BaseType.INT), ScopeType.LOCAL))
         else:
             self.semantic_error("Неверно введены параметры для for")
-        scope_inner.add_ident(self.param.node_ident)
         self.body.semantic_check(scope_inner)
 
 
 class EmptyArrNode(StmtNode):
     def __init__(self, size: int,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.size = size
 
     @property
@@ -672,13 +688,14 @@ class EmptyArrNode(StmtNode):
         return 'Array(' + str(self.size) + ')'
 
     def semantic_check(self, scope: IdentScope) -> None:
-        if self.size < 1: self.semantic_error("Нельзя создать массив размером 0")
+        if self.size.value < 1:
+            self.semantic_error("Нельзя создать массив размером 0")
 
 
 class ArrOfNode(StmtNode):
     def __init__(self, *params: ExprNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.params = params
 
     @property
@@ -703,8 +720,8 @@ class ArrOfNode(StmtNode):
 
 class ArrCallNode(ExprNode):
     def __init__(self, arr: IdentNode, *indexes: ExprNode,
-                 row: Optional[int] = None, line: Optional[int] = None, **props):
-        super().__init__(row=row, line=line, **props)
+                 column: Optional[int] = None, line: Optional[int] = None, **props):
+        super().__init__(column=column, line=line, **props)
         self.arr = arr
         self.indexes = indexes
 
@@ -728,9 +745,3 @@ class ArrCallNode(ExprNode):
                 self.semantic_error("Индекс массива не целое число")
         self.node_type = TypeDesc(base_type_=self.arr.node_type.base_type,
                                   array_level=self.arr.node_type.array_level - count)
-
-
-_empty = StmtListNode()
-
-EMPTY_STMT = StmtListNode()
-EMPTY_IDENT = IdentDesc('', TypeDesc.VOID)

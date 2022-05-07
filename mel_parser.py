@@ -80,7 +80,7 @@ parser = Lark('''
 
     ?when: "when" "(" ident ")" "{" when_inner ( when_inner )* "else" "->" stmt_group "}" 
     
-    ?type: ident
+    ?type: ident -> type
         | array_type
     
     ?array_type: ARRAY "<" type ">"
@@ -145,14 +145,14 @@ class MelASTBuilder(InlineTransformer):
             def get_bin_op_node(*args):
                 op = BinOp(args[1].value)
                 return BinOpNode(op, args[0], args[2],
-                                 **{'token': args[1], 'line': args[1].line, 'column': args[1].column})
+                                 **{'token': args[1], 'line': args[0].line, 'column': args[0].column})
 
             return get_bin_op_node
 
         elif item in ('when',):
             def get_when_node(*args):
                 return WhenNode(args[0], list(args[1:-1]), args[-1],
-                                 **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+                                **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
 
             return get_when_node
 
@@ -181,7 +181,15 @@ class MelASTBuilder(InlineTransformer):
 
         elif item in ('array_type',):
             def get_type(*args):
-                return TypeNode(name=args[0], innerType=args[1], **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+                return TypeNode(name=args[0], innerType=args[1],
+                                **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
+
+            return get_type
+
+        elif item in ('type',):
+            def get_type(*args):
+                return TypeNode(name=args[0], innerType=None,
+                                **{'token': args[0], 'line': args[0].line, 'column': args[0].column})
 
             return get_type
 

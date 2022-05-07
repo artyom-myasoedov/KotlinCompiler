@@ -6,15 +6,15 @@ import program
 def main():
     prog = '''
     
-    fun myFunc(i: Int, b: String): Double {
-    print()
+    fun myFunc(i: Int, b: String): Int {
+    println("e")
     return 1
     }
     
-    fun pow(i: Int, b: String): Int = b * i
+    fun pow(i: Int, b: Int): Float = b * i
     
     val i: Int = 10
-    var b: Double = 11.2
+    var b: Float = 11.2
     var c: String
     c = "str"
     when(i) {
@@ -28,32 +28,30 @@ def main():
     else -> {c = i - 10}
     }
     }
+    var a: Int = 2
     if (a == b) {
-    a = c
-    e = 1-4
-    } else if (empty()) {
-    i = call()
+    a = 10
+    var e: Int = 1-4
+    } else if (pow(10, a) > 0) {
+    var t: String = readLine()
     } else {
-    print()}
-    
-    for (i in 5..7) {
-    a = b
-    plus(a)
+    println("")
     }
     
-    for (i in arr) {
-    a = b
-    c = true
-    plus(a)
-    var c: Array<Array<Double>> = Array(30)
-    var c: Array<Array<Double>> = arrayOf(30, call(1), 4.3)
-    c[a + 3][2] =  c[3]
-    c[1][1]
+    for (aaa in 5..7) {
+    a = 10*12
+    myFunc(a, c)
+    }
+    var arr: Array<Int> = Array(10)
+    for (ip in arr) {
+    var co: Boolean = true
+    println(1)
+    var aa: Array<Array<Float>> = Array(30)
+    var ar2: Array<Array<Float>> = arrayOf(arrayOf(0.1))
+    aa[a + 3][2] =  ar2[3][1]
     }
     '''
-    # program.execute(prog)
-    c = []
-    print(c[0])
+    program.execute(prog)
 
 if __name__ == "__main__":
     main()

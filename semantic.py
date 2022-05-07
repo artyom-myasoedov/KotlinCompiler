@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 from typing import Optional, Tuple, Dict, Any
 import mel_parser as parser
@@ -210,14 +211,14 @@ class SemanticException(Exception):
     """Класс для исключений во время семантического анализаё
     """
 
-    def __init__(self, message, row: int = None, col: int = None, **kwargs: Any) -> None:
-        if row or col:
+    def __init__(self, message, line: int = None, col: int = None, **kwargs: Any) -> None:
+        if line or col:
             message += " ("
-            if row:
-                message += 'строка: {}'.format(row)
+            if line:
+                message += 'строка: {}'.format(line)
                 if col:
                     message += ', '
-            if row:
+            if col:
                 message += 'позиция: {}'.format(col)
             message += ")"
         self.message = message
@@ -296,10 +297,10 @@ BIN_OP_TYPE_COMPATIBILITY = {
 
 
 BUILT_IN_OBJECTS = '''
-    readLine(): String { }
-    println(p0: String): Void { }
-    toInt(p0: String): Int { }
-    toFloat(p0: String): Float { }
+    fun readLine(): String { }
+    fun println(p0: String): Void { }
+    fun toInt(p0: String): Int { }
+    fun toFloat(p0: String): Float { }
 '''
 
 
@@ -307,6 +308,7 @@ def prepare_global_scope() -> IdentScope:
     from mel_parser import parse
 
     prog = parse(BUILT_IN_OBJECTS)
+    print(*prog.tree, sep=os.linesep)
     scope = IdentScope()
     prog.semantic_check(scope)
     for name, ident in scope.idents.items():
