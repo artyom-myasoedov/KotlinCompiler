@@ -47,7 +47,7 @@ class AstNode(ABC):
 
     @property
     def tree(self) -> [str, ...]:
-        res = [str(self)]
+        res = [self.to_str_full()]
         childs_temp = self.childs
         for i, child in enumerate(childs_temp):
             ch0, ch = '├', '│'

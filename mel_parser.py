@@ -20,7 +20,7 @@ parser = Lark('''
 
     num: NUMBER  -> literal
     str: ESCAPED_STRING  -> literal
-    ident: CNAME 
+    ident:  /(?!(while|Array))[_a-zA-Z][_a-zA-Z0-9]*/ 
     int: INT -> literal
     bool: TRUE
         | FALSE
@@ -129,7 +129,7 @@ parser = Lark('''
     ?prog: stmt_list
 
     ?start: prog
-''', start='start')  # , parser='lalr')
+''', start='start')  #, parser='lalr')
 
 
 class MelASTBuilder(InlineTransformer):

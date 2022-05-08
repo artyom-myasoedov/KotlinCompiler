@@ -1,5 +1,3 @@
-import os
-import mel_parser
 import program
 
 
@@ -45,13 +43,14 @@ def main():
     var arr: Array<Int> = Array(10)
     for (ip in arr) {
     var co: Boolean = true
-    println(1)
+    // var f: Float = ip
     var aa: Array<Array<Float>> = Array(30)
     var ar2: Array<Array<Float>> = arrayOf(arrayOf(0.1))
-    aa[a + 3][2] =  ar2[3][1]
+    aa[a + 3][2] =  ar2["f"][4]
     }
     '''
     program.execute(prog)
+
 
 if __name__ == "__main__":
     main()
