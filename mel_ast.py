@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Tuple, Optional, Union, List, cast
 from enum import Enum
-from bytecode import CodeGenerator
+from bytecode import CodeGenerator, TYPE_TO_COMMAND_MAP, ByteCodeOperation
 
 from semantic import IdentScope, TypeDesc, TYPE_CONVERTIBILITY, BinOp, IdentDesc, SemanticException, \
     BIN_OP_TYPE_COMPATIBILITY, ScopeType, BaseType
@@ -105,11 +105,14 @@ class LiteralNode(ExprNode):
 
     def do_gen_bytecode(self, gen: CodeGenerator):
         if isinstance(self.value, str):
-            gen.add('    LDC "{}"'.format(self.value))
+            gen.add('    ldc "{}"'.format(self.value))
+        elif isinstance(self.value, bool):
+            if self.value:
+                gen.add('    iconst_1')
+            else:
+                gen.add('    iconst_0')
         else:
-            gen.add('    LDC {}'.format(self.value))
-
-
+            gen.add('    ldc {}'.format(self.value))
 
 
 class IdentNode(ExprNode):
@@ -127,6 +130,14 @@ class IdentNode(ExprNode):
             self.semantic_error('Идентификатор {} не найден'.format(self.name))
         self.node_type = ident.type
         self.node_ident = ident
+
+    def do_gen_bytecode(self, gen: CodeGenerator):
+        if self.node_ident.scope == ScopeType.LOCAL:
+            gen.add(f'    {TYPE_TO_COMMAND_MAP[self.node_type.base_type.name][ByteCodeOperation.LOAD_LOCAL_OR_ARG]}', self.node_ident.index)
+        elif self.node_ident.scope == ScopeType.PARAM:
+            gen.add('    ldarg', self.node_ident.index)
+        elif self.node_ident.scope in (ScopeType.GLOBAL, ScopeType.GLOBAL_LOCAL):
+            gen.add(f'    ldsfld {MSIL_TYPE_NAMES[self.node_ident.type.base_type]} Program::_gl{self.node_ident.index}')
 
 
 class Bools(Enum):

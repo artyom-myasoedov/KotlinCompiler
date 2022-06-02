@@ -1,4 +1,31 @@
+from enum import Enum
 from typing import List, Union
+from mel_ast import BaseType
+
+
+class ByteCodeOperation(Enum):
+    LOAD_LOCAL_OR_ARG = 'load_local_or_arg'
+
+    def __str__(self):
+        return self.value
+
+
+TYPE_TO_COMMAND_MAP = {
+    BaseType.STR: {
+        ByteCodeOperation.LOAD_LOCAL_OR_ARG: 'astore'
+    },
+    BaseType.INT: {
+        ByteCodeOperation.LOAD_LOCAL_OR_ARG: 'istore'
+
+    },
+    BaseType.FLOAT: {
+        ByteCodeOperation.LOAD_LOCAL_OR_ARG: 'fstore'
+    },
+    BaseType.BOOL: {
+        ByteCodeOperation.LOAD_LOCAL_OR_ARG: 'istore'
+    }
+
+}
 
 
 class CodeLabel:
@@ -10,7 +37,7 @@ class CodeLabel:
 
 
 class CodeLine:
-    def __init__(self, code: str, *params: Union[str, CodeLabel], label: CodeLabel = None):
+    def __init__(self, code: str, *params: Union[str, int, CodeLabel], label: CodeLabel = None):
         self.code = code
         self.label = label
         self.params = params
@@ -29,7 +56,7 @@ class CodeGenerator:
     def __init__(self):
         self.code_lines: List[CodeLine] = []
 
-    def add(self, code: str, *params: Union[str, CodeLabel], label: CodeLabel = None):
+    def add(self, code: str, *params: Union[str, int, CodeLabel], label: CodeLabel = None):
         self.code_lines.append(CodeLine(code, *params, label=label))
 
     @property
@@ -46,8 +73,10 @@ class CodeGenerator:
         return code
 
     def start(self) -> None:
-        self.add('public class Main')
-        self.add('{')
+        self.add('.source                  Main.java')
+        self.add('.class                   public Main')
+        self.add('.super                   java/lang/Object')
+        self.add('')
 
     def end(self) -> None:
         self.add('}')
