@@ -1,7 +1,8 @@
 from typing import List, Union, Any
 
 import visitor
-from semantic import BaseType, TypeDesc, ScopeType, BinOp, SemanticException, BIN_OP_TYPE_COMPATIBILITY, TYPE_CONVERTIBILITY
+from semantic import BaseType, TypeDesc, ScopeType, BinOp, SemanticException, BIN_OP_TYPE_COMPATIBILITY, \
+    TYPE_CONVERTIBILITY
 from mel_ast import AstNode, StmtNode, SingleIfNode, MultiIfNode, IdentNode, CallNode, WhenNode, WhenInnerNode, \
     WhileNode, ExprNode, LiteralNode, AssignNode, VarInitNode, VarTypeNode, BinOpNode, TypeConvertNode, \
     CommonFunDeclrNode, StmtListNode
@@ -44,7 +45,8 @@ MSIL_TYPE_NAMES = {
     BaseType.VOID: 'void',
     BaseType.INT: 'int32',
     BaseType.FLOAT: 'float32',
-    BaseType.STR: 'string'
+    BaseType.STR: 'string',
+    BaseType.BOOL: 'int32'
 }
 
 
@@ -104,9 +106,14 @@ class CodeGenerator:
         if isinstance(node.value, int):
             self.add('    ldc.i4 {}'.format(node.value))
         elif isinstance(node.value, float):
-            self.add('    ldc.r8', node.value)
+            self.add('    ldc.r8 {}'.format(node.value))
         elif isinstance(node.value, str):
             self.add('    ldstr "{}"'.format(node.value))
+        elif isinstance(node.value, bool):
+            if node.value:
+                self.add('    ldc.i4 1')
+            else:
+                self.add('    ldc.i4 0')
         else:
             pass
 
@@ -117,7 +124,8 @@ class CodeGenerator:
         elif node.node_ident.scope == ScopeType.PARAM:
             self.add('    ldarg', node.node_ident.index)
         elif node.node_ident.scope in (ScopeType.GLOBAL, ScopeType.GLOBAL_LOCAL):
-            self.add(f'    ldsfld {MSIL_TYPE_NAMES[node.node_ident.type.base_type]} Program::_gl{node.node_ident.index}')
+            self.add(
+                f'    ldsfld {MSIL_TYPE_NAMES[node.node_ident.type.base_type]} Program::_gl{node.node_ident.index}')
 
     @visitor.when(AssignNode)
     def msil_gen(self, node: AssignNode) -> None:
@@ -132,11 +140,15 @@ class CodeGenerator:
 
     @visitor.when(VarInitNode)
     def msil_gen(self, node: VarInitNode) -> None:
-        node.varType.msil_gen(self)
+        node.val.msil_gen(self)
+        var = node.varType.var
+        if var.node_ident.scope == ScopeType.LOCAL:
+            self.add('    stloc', var.node_ident.index)
+        elif var.node_ident.scope == ScopeType.PARAM:
+            self.add('    starg', var.node_ident.index)
+        elif var.node_ident.scope in (ScopeType.GLOBAL, ScopeType.GLOBAL_LOCAL):
+            self.add(f'    stsfld {MSIL_TYPE_NAMES[var.node_ident.type.base_type]} Program::_gl{var.node_ident.index}')
 
-    @visitor.when(VarTypeNode)
-    def msil_gen(self, node: VarTypeNode) -> None:
-        node.var.msil_gen(self)
 
     @visitor.when(BinOpNode)
     def msil_gen(self, node: BinOpNode) -> None:
@@ -167,7 +179,7 @@ class CodeGenerator:
         for param in node.params:
             param.msil_gen(self)
         cmd = '    call ' + MSIL_TYPE_NAMES[node.node_type.base_type] + ' class ' + \
-            'Runtime::' + node.func.name + '(int32)'
+              'Runtime::' + node.func.name + '(int32)'
         self.add(cmd)
 
     @visitor.when(SingleIfNode)

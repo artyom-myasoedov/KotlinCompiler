@@ -54,6 +54,9 @@ def main():
     
     val i: Int = 10
     var b: Float = 11.2
+    if (i > 12) {
+    } else {
+    }
     '''
     program.execute(prog2)
 
