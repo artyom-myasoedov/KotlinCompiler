@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Tuple, Optional, Union, List, cast
 from enum import Enum
-from bytecode import CodeGenerator
-
 from semantic import IdentScope, TypeDesc, TYPE_CONVERTIBILITY, BinOp, IdentDesc, SemanticException, \
     BIN_OP_TYPE_COMPATIBILITY, ScopeType, BaseType
 
@@ -46,13 +44,8 @@ class AstNode(ABC):
     def semantic_check(self, scope: IdentScope) -> None:
         pass
 
-    def gen_bytecode(self, gen: CodeGenerator, is_first_visit: bool = False) -> None:
-        if is_first_visit and isinstance(self, CommonFunDeclrNode) or not is_first_visit and not isinstance(self,
-                                                                                                            CommonFunDeclrNode):
-            self.do_gen_bytecode(gen)
-
-    def do_gen_bytecode(self, gen: CodeGenerator):
-        pass
+    def msil_gen(self, generator) -> None:
+        generator.msil_gen(self)
 
     @property
     def tree(self) -> [str, ...]:
@@ -102,14 +95,6 @@ class LiteralNode(ExprNode):
             self.node_type = TypeDesc(base_type_=BaseType.STR)
         else:
             self.semantic_error('Неизвестный тип {} для {}'.format(type(self.value), self.value))
-
-    def do_gen_bytecode(self, gen: CodeGenerator):
-        if isinstance(self.value, str):
-            gen.add('    LDC "{}"'.format(self.value))
-        else:
-            gen.add('    LDC {}'.format(self.value))
-
-
 
 
 class IdentNode(ExprNode):

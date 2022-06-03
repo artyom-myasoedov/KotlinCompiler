@@ -2,7 +2,7 @@ import program
 
 
 def main():
-    prog = '''
+    prog1 = '''
     
     fun myFunc(i: Int, b: String): Int {
     println("e")
@@ -49,7 +49,13 @@ def main():
     aa[a + 3][2] =  ar2["f"][4]
     }
     '''
-    program.execute(prog)
+
+    prog2 = '''fun pow(i: Int, b: Int): Float = b * i
+    
+    val i: Int = 10
+    var b: Float = 11.2
+    '''
+    program.execute(prog2)
 
 
 if __name__ == "__main__":
