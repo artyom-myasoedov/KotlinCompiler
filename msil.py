@@ -5,7 +5,7 @@ from semantic import BaseType, TypeDesc, ScopeType, BinOp, SemanticException, BI
     TYPE_CONVERTIBILITY
 from mel_ast import AstNode, StmtNode, SingleIfNode, MultiIfNode, IdentNode, CallNode, WhenNode, WhenInnerNode, \
     WhileNode, ExprNode, LiteralNode, AssignNode, VarInitNode, VarTypeNode, BinOpNode, TypeConvertNode, \
-    CommonFunDeclrNode, StmtListNode
+    CommonFunDeclrNode, StmtListNode, ReturnNode
 
 
 class CodeLabel:
@@ -149,7 +149,6 @@ class CodeGenerator:
         elif var.node_ident.scope in (ScopeType.GLOBAL, ScopeType.GLOBAL_LOCAL):
             self.add(f'    stsfld {MSIL_TYPE_NAMES[var.node_ident.type.base_type]} Program::_gl{var.node_ident.index}')
 
-
     @visitor.when(BinOpNode)
     def msil_gen(self, node: BinOpNode) -> None:
         node.arg1.msil_gen(self)
@@ -159,13 +158,42 @@ class CodeGenerator:
                 self.add('    call bool [mscorlib]System.String::op_Inequality(string, string)')
                 self.add('    ldc.i4.0')
                 self.add('    ceq')
+            else:
+                self.add('    ceq')
+                self.add('    ldc.i4.0')
+                self.add('    ceq')
         if node.op == BinOp.EQUALS:
             if node.arg1.node_type == TypeDesc.STR:
                 self.add('    call bool [mscorlib]System.String::op_Inequality(string, string)')
+            else:
+                self.add('    ceq')
         elif node.op == BinOp.GT:
             self.add('    cgt')
+            self.add('    ldc.i4.0')
+            self.add('    ceq')
+        elif node.op == BinOp.LT:
+            self.add('    clt')
+            self.add('    ldc.i4.0')
+            self.add('    ceq')
+        elif node.op == BinOp.LE:
+            self.add('    cgt.un')
+        elif node.op == BinOp.GE:
+            self.add('    clt.un')
+        elif node.op == BinOp.ADD:
+            self.add('    add')
+        elif node.op == BinOp.SUB:
+            self.add('    sub')
+        elif node.op == BinOp.MUL:
+            self.add('    mul')
+        elif node.op == BinOp.DIV:
+            self.add('    div')
         else:
             pass
+
+    @visitor.when(ReturnNode)
+    def msil_gen(self, node: ReturnNode) -> None:
+        node.val.msil_gen(self)
+        self.add('    ret')
 
     @visitor.when(TypeConvertNode)
     def msil_gen(self, node: TypeConvertNode) -> None:

@@ -50,13 +50,11 @@ def main():
     }
     '''
 
-    prog2 = '''fun pow(i: Int, b: Int): Float = b * i
+    prog2 = '''//fun pow(i: Int, b: Int): Float = b * i
     
     val i: Int = 10
     var b: Float = 11.2
-    if (i > 12) {
-    } else {
-    }
+    var c: Boolean = b > 10.0
     '''
     program.execute(prog2)
 
